@@ -30,11 +30,8 @@
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
       overflow:hidden;
     }
-
-    /* Map */
     #map{position:fixed; inset:0}
 
-    /* Top bar */
     .topbar{
       position:fixed; top:12px; left:12px; right:12px;
       display:flex; gap:10px; align-items:center; justify-content:space-between;
@@ -57,10 +54,13 @@
       background: var(--accent);
       box-shadow: 0 0 18px rgba(106,167,255,.55);
     }
+
     .controls{
       display:flex; gap:8px; align-items:center; flex-wrap:wrap;
       justify-content:flex-end;
+      position:relative;
     }
+
     .input{
       width:min(320px, 48vw);
       background: var(--panel2);
@@ -92,7 +92,6 @@
     }
     .btn:active{transform: translateY(1px)}
 
-    /* Hint chip */
     .hint{
       position:fixed;
       left:12px; bottom:12px;
@@ -108,6 +107,31 @@
       display:flex; align-items:center; gap:8px;
       max-width: calc(100vw - 24px);
     }
+
+    /* Autocomplete dropdown */
+    .dropdown{
+      position:absolute;
+      top:46px;
+      right:0;
+      width:min(420px, 90vw);
+      background: rgba(15,27,51,.96);
+      border:1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:none;
+      z-index:11;
+      backdrop-filter: blur(12px);
+    }
+    .dropdown.open{display:block}
+    .dd-item{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+    }
+    .dd-item:hover{background: rgba(255,255,255,.06)}
+    .dd-title{font-weight:800; font-size:13px}
+    .dd-sub{color: var(--muted); font-size:12px; margin-top:2px}
 
     /* Sidebar */
     .sidebar{
@@ -127,20 +151,13 @@
       display:none;
     }
     .sidebar.open{display:block}
-    .sidebar-inner{
-      height:100%;
-      display:flex;
-      flex-direction:column;
-    }
+    .sidebar-inner{height:100%; display:flex; flex-direction:column;}
     .sidebar-header{
       padding:14px 14px 10px;
       border-bottom:1px solid var(--border);
       display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
     }
-    .titleblock h2{
-      margin:0; font-size:18px;
-      line-height:1.2;
-    }
+    .titleblock h2{margin:0; font-size:18px; line-height:1.2;}
     .muted{color:var(--muted)}
     .small{font-size:12px}
     .sidebar-actions{display:flex; gap:8px; align-items:center}
@@ -238,19 +255,14 @@
       background: rgba(0,0,0,.2);
     }
 
-    /* Mobile tweaks */
     @media (max-width: 720px){
       .topbar{border-radius: 18px}
       .controls{gap:6px}
       .input{width:min(220px, 44vw)}
-      .sidebar{
-        left:12px;
-        right:12px;
-        width:auto;
-        top:76px;
-      }
+      .sidebar{left:12px; right:12px; width:auto; top:76px;}
       .gallery{grid-template-columns: 1fr}
       .thumb{height:180px}
+      .dropdown{right:auto; left:0; width: calc(100vw - 24px);}
     }
   </style>
 </head>
@@ -262,11 +274,17 @@
     <div class="brand">
       <span class="dot"></span>
       <span>CheeseMap</span>
-      <span class="muted small">• pins + photos</span>
+      <span class="muted small">• California only</span>
     </div>
 
     <div class="controls">
-      <input id="search" class="input" type="text" placeholder="Search pins (title/notes)..." />
+      <!-- Address search (California-only) -->
+      <input id="addr" class="input" type="text" placeholder="Search address / place (CA)..." autocomplete="off" />
+      <div id="dropdown" class="dropdown"></div>
+
+      <!-- Pin search (your pins) -->
+      <input id="pinSearch" class="input" type="text" placeholder="Search your pins..." />
+
       <button id="btnLocate" class="btn ghost" title="Locate me">Locate</button>
       <button id="btnExport" class="btn ghost" title="Export pins (and photos)">Export</button>
       <button id="btnImport" class="btn ghost" title="Import pins">Import</button>
@@ -275,7 +293,7 @@
   </div>
 
   <div class="hint" id="hint">
-    🗺️ Click anywhere on the map to drop a pin. Click a pin to open the sidebar.
+    🗺️ Click the map to add a pin. Use the search to jump to an address in California.
   </div>
 
   <!-- Sidebar -->
@@ -322,7 +340,7 @@
         <div class="row">
           <div>
             <label>Title</label>
-            <input id="pinTitle" type="text" placeholder="e.g., Ranch gate, work site, cool photo spot..." />
+            <input id="pinTitle" type="text" placeholder="e.g., Work site, ranch gate, photo spot..." />
           </div>
           <div>
             <label>Tags (optional)</label>
@@ -332,7 +350,7 @@
 
         <div>
           <label>Notes</label>
-          <textarea id="pinNotes" placeholder="What happened here?"></textarea>
+          <textarea id="pinNotes" placeholder="Notes..."></textarea>
         </div>
 
         <div>
@@ -359,13 +377,37 @@
 
   <script>
     /***************
+     * IMPORTANT: Fancy Apple/Google-like POI labels depend on the map STYLE.
+     *
+     * Option A (no key; decent labels, not as rich):
+     *   STYLE_URL = "https://demotiles.maplibre.org/style.json"
+     *
+     * Option B (recommended; more “real map” feel + richer labels):
+     *   Create a free MapTiler account and set MAPTILER_KEY below.
+     *   STYLE_URL = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+     ***************/
+    const MAPTILER_KEY = ""; // <-- optional (recommended). Paste key here.
+    const STYLE_URL = MAPTILER_KEY
+      ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
+      : "https://demotiles.maplibre.org/style.json";
+
+    /***************
+     * California bounds (approx)
+     ***************/
+    const CA_BOUNDS = [
+      [-124.482003, 32.528832], // SW (near CA/MX + coast)
+      [-114.131211, 42.009518]  // NE (near CA/OR + NV)
+    ];
+
+    /***************
      * Helpers
      ***************/
     const $ = (id) => document.getElementById(id);
-    const fmtDate = (ms) => {
-      try { return new Date(ms).toLocaleString(); } catch { return ""; }
-    };
+    const fmtDate = (ms) => { try { return new Date(ms).toLocaleString(); } catch { return ""; } };
     const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : ("id-" + Math.random().toString(16).slice(2) + Date.now()));
+    const debounce = (fn, ms=250) => {
+      let t; return (...args) => { clearTimeout(t); t=setTimeout(()=>fn(...args), ms); };
+    };
 
     /***************
      * IndexedDB (pins + photo blobs)
@@ -379,23 +421,14 @@
         const req = indexedDB.open(DB_NAME, DB_VER);
         req.onupgradeneeded = () => {
           const d = req.result;
-          if (!d.objectStoreNames.contains("pins")) {
-            const pins = d.createObjectStore("pins", { keyPath: "id" });
-            pins.createIndex("createdAt", "createdAt", { unique:false });
-          }
-          if (!d.objectStoreNames.contains("photos")) {
-            d.createObjectStore("photos", { keyPath: "id" });
-          }
+          if (!d.objectStoreNames.contains("pins")) d.createObjectStore("pins", { keyPath: "id" });
+          if (!d.objectStoreNames.contains("photos")) d.createObjectStore("photos", { keyPath: "id" });
         };
         req.onsuccess = () => { db = req.result; resolve(db); };
         req.onerror = () => reject(req.error);
       });
     }
-
-    function tx(store, mode="readonly"){
-      return db.transaction(store, mode).objectStore(store);
-    }
-
+    function tx(store, mode="readonly"){ return db.transaction(store, mode).objectStore(store); }
     async function dbPut(store, value){
       return new Promise((resolve, reject) => {
         const req = tx(store, "readwrite").put(value);
@@ -403,7 +436,6 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     async function dbGet(store, key){
       return new Promise((resolve, reject) => {
         const req = tx(store).get(key);
@@ -411,7 +443,6 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     async function dbDelete(store, key){
       return new Promise((resolve, reject) => {
         const req = tx(store, "readwrite").delete(key);
@@ -419,11 +450,9 @@
         req.onerror = () => reject(req.error);
       });
     }
-
     async function dbGetAllPins(){
       return new Promise((resolve, reject) => {
-        const store = tx("pins");
-        const req = store.getAll();
+        const req = tx("pins").getAll();
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
@@ -434,38 +463,53 @@
      ***************/
     let map;
     let markers = new Map(); // pinId -> Marker
-    let currentPin = null;   // active pin object
+    let currentPin = null;
     let pendingLatLng = null;
     let isEditMode = false;
 
-    // object URLs so we can revoke them (avoid memory leak)
     let activeObjectUrls = [];
-
     function revokeObjectUrls(){
       for (const u of activeObjectUrls) URL.revokeObjectURL(u);
       activeObjectUrls = [];
     }
 
+    // Search selected location marker (not saved)
+    let searchMarker = null;
+    let lastGeocode = null; // {lat,lng,label}
+
     /***************
-     * Map init
+     * Map init (California-only)
      ***************/
     function initMap(){
       map = new maplibregl.Map({
         container: "map",
-        style: "https://demotiles.maplibre.org/style.json", // no key required
-        center: [-119.7, 36.3],
-        zoom: 6.2,
+        style: STYLE_URL,
+        bounds: CA_BOUNDS,
+        fitBoundsOptions: { padding: 40, maxZoom: 12 },
         pitch: 45,
         bearing: -15,
         antialias: true
       });
 
+      // Lock panning/zooming to CA
+      map.setMaxBounds(CA_BOUNDS);
+      map.setMinZoom(5);      // keeps you “in CA”
+      map.setMaxZoom(20);
+
       map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), "top-left");
       map.addControl(new maplibregl.FullscreenControl(), "top-left");
 
-      // Click map to create new pin
+      // Only user-added pins are markers.
+      // Base map will show labels/POIs depending on style.
       map.on("click", (e) => {
+        // If user clicked while dropdown open, close it
+        closeDropdown();
+
+        // Add new user pin
         openPinModal({ lat: e.lngLat.lat, lng: e.lngLat.lng }, null);
+
+        // If they just searched an address, prefill title with it
+        if (lastGeocode?.label) $("pinTitle").value = lastGeocode.label;
       });
     }
 
@@ -486,7 +530,6 @@
 
       $("modal").classList.add("open");
     }
-
     function closePinModal(){
       $("modal").classList.remove("open");
       pendingLatLng = null;
@@ -500,7 +543,6 @@
       for (const m of markers.values()) m.remove();
       markers.clear();
     }
-
     function addMarkerForPin(pin){
       const marker = new maplibregl.Marker({ color: "#6aa7ff" })
         .setLngLat([pin.lng, pin.lat])
@@ -526,9 +568,7 @@
         return hay.includes(q);
       });
 
-      // newest first
       filtered.sort((a,b)=> (b.createdAt||0)-(a.createdAt||0));
-
       for (const pin of filtered) addMarkerForPin(pin);
     }
 
@@ -549,7 +589,6 @@
       $("sbMeta").textContent =
         `${pin.lat.toFixed(6)}, ${pin.lng.toFixed(6)} • ${fmtDate(pin.createdAt)}${tagTxt}`;
 
-      // Photos
       const photoIds = pin.photoIds || [];
       $("sbPhotoCount").textContent = photoIds.length ? `${photoIds.length} photo(s)` : "No photos yet";
 
@@ -578,7 +617,6 @@
 
       $("sidebar").classList.add("open");
     }
-
     function closeSidebar(){
       $("sidebar").classList.remove("open");
       currentPin = null;
@@ -600,6 +638,20 @@
     /***************
      * Create / Edit pin
      ***************/
+    async function storeFilesAsPhotos(files){
+      const ids = [];
+      for (const file of files){
+        if (file.size > 12 * 1024 * 1024){
+          alert(`Skipped ${file.name} (over 12MB).`);
+          continue;
+        }
+        const id = uid();
+        await dbPut("photos", { id, blob: file, name: file.name, type: file.type, createdAt: Date.now() });
+        ids.push(id);
+      }
+      return ids;
+    }
+
     async function savePinFromModal(){
       if (!pendingLatLng) return;
 
@@ -614,7 +666,6 @@
       }
 
       if (isEditMode && currentPin){
-        // Update pin fields (keep existing photos)
         const updated = {
           ...currentPin,
           title, notes, tags,
@@ -623,7 +674,6 @@
           updatedAt: Date.now()
         };
 
-        // Add any new photos too
         if (files.length){
           const newPhotoIds = await storeFilesAsPhotos(files);
           updated.photoIds = [...(updated.photoIds||[]), ...newPhotoIds];
@@ -631,12 +681,11 @@
 
         await dbPut("pins", updated);
         closePinModal();
-        await refreshPinsOnMap($("search").value);
+        await refreshPinsOnMap($("pinSearch").value);
         await openSidebar(updated.id);
         return;
       }
 
-      // New pin
       const pinId = uid();
       const createdAt = Date.now();
       const photoIds = files.length ? await storeFilesAsPhotos(files) : [];
@@ -655,28 +704,10 @@
       await dbPut("pins", pin);
 
       closePinModal();
-      await refreshPinsOnMap($("search").value);
+      await refreshPinsOnMap($("pinSearch").value);
       await openSidebar(pinId);
     }
 
-    async function storeFilesAsPhotos(files){
-      const ids = [];
-      for (const file of files){
-        // Basic size guard (avoid enormous blobs)
-        if (file.size > 12 * 1024 * 1024){
-          alert(`Skipped ${file.name} (over 12MB).`);
-          continue;
-        }
-        const id = uid();
-        await dbPut("photos", { id, blob: file, name: file.name, type: file.type, createdAt: Date.now() });
-        ids.push(id);
-      }
-      return ids;
-    }
-
-    /***************
-     * Add photos from sidebar
-     ***************/
     async function addPhotosToCurrentPin(){
       if (!currentPin) return;
       const files = Array.from($("sbAddPhotos").files || []);
@@ -694,34 +725,46 @@
       await dbPut("pins", updated);
       $("sbAddPhotos").value = "";
       await openSidebar(updated.id);
-      await refreshPinsOnMap($("search").value);
+      await refreshPinsOnMap($("pinSearch").value);
     }
 
-    /***************
-     * Delete pin
-     ***************/
     async function deleteCurrentPin(){
       if (!currentPin) return;
       if (!confirm("Delete this pin? (Photos for this pin will also be removed)")) return;
 
-      // delete photos
       for (const pid of (currentPin.photoIds || [])){
         await dbDelete("photos", pid);
       }
       await dbDelete("pins", currentPin.id);
 
       closeSidebar();
-      await refreshPinsOnMap($("search").value);
+      await refreshPinsOnMap($("pinSearch").value);
     }
 
     /***************
      * Export / Import
      ***************/
+    function blobToDataURL(blob){
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+      });
+    }
+    function dataURLToBlob(dataUrl){
+      const [meta, data] = dataUrl.split(",");
+      const mime = (meta.match(/data:(.*);base64/) || [])[1] || "application/octet-stream";
+      const bin = atob(data);
+      const arr = new Uint8Array(bin.length);
+      for (let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: mime });
+    }
+
     async function exportAll(){
       const pins = await dbGetAllPins();
-
-      // Include photos as base64 so export is portable
       const photos = {};
+
       for (const p of pins){
         for (const pid of (p.photoIds||[])){
           if (photos[pid]) continue;
@@ -735,12 +778,7 @@
         }
       }
 
-      const payload = {
-        exportedAt: new Date().toISOString(),
-        pins,
-        photos
-      };
-
+      const payload = { exportedAt: new Date().toISOString(), pins, photos };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -750,34 +788,14 @@
       URL.revokeObjectURL(url);
     }
 
-    function blobToDataURL(blob){
-      return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => resolve(r.result);
-        r.onerror = () => reject(r.error);
-        r.readAsDataURL(blob);
-      });
-    }
-
-    function dataURLToBlob(dataUrl){
-      const [meta, data] = dataUrl.split(",");
-      const mime = (meta.match(/data:(.*);base64/) || [])[1] || "application/octet-stream";
-      const bin = atob(data);
-      const arr = new Uint8Array(bin.length);
-      for (let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
-      return new Blob([arr], { type: mime });
-    }
-
     async function importFromFile(file){
       const text = await file.text();
       const payload = JSON.parse(text);
-
       if (!payload?.pins || !Array.isArray(payload.pins)){
         alert("Invalid import file.");
         return;
       }
 
-      // Write photos first
       const photos = payload.photos || {};
       for (const pid of Object.keys(photos)){
         const rec = photos[pid];
@@ -786,9 +804,7 @@
         await dbPut("photos", { id: pid, blob, name: rec.name, type: rec.type, createdAt: Date.now() });
       }
 
-      // Write pins
       for (const pin of payload.pins){
-        // Ensure required fields
         if (!pin.id) pin.id = uid();
         if (typeof pin.lat !== "number" || typeof pin.lng !== "number") continue;
         pin.createdAt = pin.createdAt || Date.now();
@@ -797,7 +813,7 @@
         await dbPut("pins", pin);
       }
 
-      await refreshPinsOnMap($("search").value);
+      await refreshPinsOnMap($("pinSearch").value);
       alert("Import complete.");
     }
 
@@ -812,11 +828,122 @@
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
+
+          // Clamp to CA bounds-ish: if outside, just warn
+          if (
+            longitude < CA_BOUNDS[0][0] || longitude > CA_BOUNDS[1][0] ||
+            latitude  < CA_BOUNDS[0][1] || latitude  > CA_BOUNDS[1][1]
+          ){
+            alert("Your location appears outside California. The map is locked to CA.");
+            return;
+          }
+
           map.flyTo({ center:[longitude, latitude], zoom: 14, speed: 1.2, curve: 1.42 });
         },
         () => alert("Couldn’t get your location. Check browser permissions."),
         { enableHighAccuracy:true, timeout: 10000 }
       );
+    }
+
+    /***************
+     * Address search (California-only) via Nominatim
+     * - Autocomplete dropdown
+     * - Fly to selected result
+     * - No pins created unless user adds one
+     ***************/
+    function closeDropdown(){
+      $("dropdown").classList.remove("open");
+      $("dropdown").innerHTML = "";
+    }
+
+    function setSearchMarker(lng, lat){
+      if (searchMarker) searchMarker.remove();
+      searchMarker = new maplibregl.Marker({ color: "#ffffff" })
+        .setLngLat([lng, lat])
+        .addTo(map);
+    }
+
+    async function geocodeCA(query){
+      const q = (query || "").trim();
+      if (q.length < 3) { closeDropdown(); return; }
+
+      // California bounding box for Nominatim:
+      // viewbox = left,top,right,bottom
+      const left = CA_BOUNDS[0][0];
+      const bottom = CA_BOUNDS[0][1];
+      const right = CA_BOUNDS[1][0];
+      const top = CA_BOUNDS[1][1];
+
+      const url =
+        "https://nominatim.openstreetmap.org/search?" +
+        new URLSearchParams({
+          format: "json",
+          q,
+          addressdetails: "1",
+          limit: "6",
+          bounded: "1",
+          viewbox: `${left},${top},${right},${bottom}`
+        }).toString();
+
+      let results = [];
+      try{
+        const res = await fetch(url, { headers: { "Accept": "application/json" } });
+        results = await res.json();
+      } catch {
+        closeDropdown();
+        return;
+      }
+
+      const dd = $("dropdown");
+      dd.innerHTML = "";
+
+      if (!results.length){
+        dd.innerHTML = `<div class="dd-item"><div class="dd-title">No results in California</div><div class="dd-sub">Try a more specific address/city.</div></div>`;
+        dd.classList.add("open");
+        return;
+      }
+
+      for (const r of results){
+        const lat = Number(r.lat);
+        const lng = Number(r.lon);
+        const label = r.display_name || "Result";
+
+        const item = document.createElement("div");
+        item.className = "dd-item";
+        item.innerHTML = `
+          <div class="dd-title">${escapeHtml(label.split(",").slice(0,2).join(", "))}</div>
+          <div class="dd-sub">${escapeHtml(label)}</div>
+        `;
+
+        item.onclick = () => {
+          closeDropdown();
+          $("addr").value = label;
+
+          lastGeocode = { lat, lng, label };
+          setSearchMarker(lng, lat);
+
+          map.flyTo({ center:[lng, lat], zoom: 15, speed: 1.2, curve: 1.42 });
+
+          // Optional: prompt user to create pin at this address
+          setTimeout(() => {
+            const makePin = confirm("Jumped to this address. Add a user pin here?");
+            if (makePin){
+              openPinModal({ lat, lng }, null);
+              $("pinTitle").value = label;
+            }
+          }, 250);
+        };
+
+        dd.appendChild(item);
+      }
+
+      dd.classList.add("open");
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
     }
 
     /***************
@@ -833,7 +960,6 @@
 
       $("btnEditPin").onclick = async () => {
         if (!currentPin) return;
-        // Edit pin: open modal, prefill, keep lat/lng
         openPinModal({ lat: currentPin.lat, lng: currentPin.lng }, currentPin);
       };
 
@@ -841,12 +967,11 @@
 
       $("lightbox").addEventListener("click", closeLightbox);
 
-      $("search").addEventListener("input", async (e) => {
+      $("pinSearch").addEventListener("input", async (e) => {
         await refreshPinsOnMap(e.target.value);
       });
 
       $("btnLocate").onclick = locateMe;
-
       $("btnExport").onclick = exportAll;
 
       $("btnImport").onclick = () => {
@@ -862,14 +987,35 @@
       $("btnHelp").onclick = () => {
         alert(
           "How to use:\n\n" +
-          "• Click the map to add a pin\n" +
-          "• Click a pin to open the sidebar\n" +
-          "• Upload photos to a pin\n" +
-          "• Search pins with the search bar\n" +
-          "• Export/Import to move your data\n\n" +
-          "Note: Data is saved locally in THIS browser."
+          "• Map is locked to California\n" +
+          "• Use address search to jump to a location\n" +
+          "• Click map to add a pin (only user pins appear as markers)\n" +
+          "• Click a pin to open sidebar + photos\n" +
+          "• Data is saved locally in THIS browser\n\n" +
+          "Note: How many business labels you see depends on the map style."
         );
       };
+
+      // Address search autocomplete
+      $("addr").addEventListener("input", debounce((e) => geocodeCA(e.target.value), 300));
+      $("addr").addEventListener("focus", debounce((e) => geocodeCA(e.target.value), 150));
+
+      // Close dropdown on outside click
+      document.addEventListener("click", (ev) => {
+        const dd = $("dropdown");
+        const addr = $("addr");
+        if (!dd.contains(ev.target) && ev.target !== addr) closeDropdown();
+      });
+
+      // ESC closes dropdown/modal/sidebar
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeDropdown();
+          if ($("modal").classList.contains("open")) closePinModal();
+          if ($("sidebar").classList.contains("open")) closeSidebar();
+          if ($("lightbox").classList.contains("open")) closeLightbox();
+        }
+      });
     }
 
     /***************
@@ -881,7 +1027,6 @@
       wireUI();
       await refreshPinsOnMap("");
 
-      // Hide the hint after a few seconds
       setTimeout(() => { const h=$("hint"); if(h) h.style.display="none"; }, 6500);
     })();
   </script>
