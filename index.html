@@ -175,11 +175,6 @@
       color: var(--text);
       font-weight:800;
     }
-    .btn.danger{
-      background: rgba(255,106,122,.18);
-      color: var(--text);
-      border-color: rgba(255,106,122,.35);
-    }
     .btn:active{transform: translateY(1px)}
 
     .togglePill{
@@ -327,15 +322,6 @@
       justify-content:center;
       background: rgba(0,0,0,.18);
     }
-    .egg-body img{
-      width:100%;
-      height:auto;
-      max-height: 78vh;
-      object-fit: contain;
-      border-radius: 16px;
-      border:1px solid rgba(255,255,255,.12);
-      background: rgba(0,0,0,.18);
-    }
 
     @media (max-width: 720px){
       .dropdown{right:auto; left:0; width: calc(100vw - 24px);}
@@ -377,7 +363,6 @@
           </div>
 
           <button id="btnSearch" class="btn ghost" title="Search">Search</button>
-
           <div id="dropdown" class="dropdown"></div>
         </div>
 
@@ -409,13 +394,19 @@
         <div class="egg-title"><span class="dot"></span> IDEN</div>
         <button class="btn ghost" id="btnEggClose">✕</button>
       </div>
+
+      <!-- ✅ FIXED: iden.png (cache-busted) + fallback message if anything breaks -->
       <div class="egg-body">
-        <!-- HEIC is not supported in every browser.
-             Upload iden.jpg too for best compatibility; the <img> fallback will use it. -->
-        <picture>
-          <source srcset="iden.HEIC" type="image/heic">
-          <img id="eggImg" src="iden.jpg" alt="IDEN" />
-        </picture>
+        <img
+          id="eggImg"
+          src="iden.png?v=2"
+          alt="IDEN"
+          style="width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.18);"
+          onerror="this.style.display='none';document.getElementById('eggImgErr').style.display='block';"
+        />
+        <div id="eggImgErr" style="display:none;color:rgba(255,255,255,.7);padding:16px;text-align:center;">
+          Image failed to load. Confirm <b>iden.png</b> is in the repo root (same folder as index.html).
+        </div>
       </div>
     </div>
   </div>
@@ -423,7 +414,8 @@
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
   <script>
-    const MAPTILER_KEY = "rreP1kJx0CQWSnrve5pW";
+    // ✅ NEW KEY
+    const MAPTILER_KEY = "eh8GLc1kXlfzsyg5cLYi";
 
     const STYLES = {
       streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
@@ -453,7 +445,6 @@
       );
     }
 
-    // Map + state
     let map;
     let searchMarker = null;
     let selectedSearch = null;
@@ -479,8 +470,7 @@
       map.setMaxBounds(CA_BOUNDS);
       map.setMinZoom(5);
       map.setMaxZoom(20);
-
-      // no +/− zoom control
+      // ✅ no +/- zoom control
     }
 
     function closeDropdown(){
@@ -503,10 +493,17 @@
     function openEgg(){ $("egg").classList.add("open"); }
     function closeEgg(){ $("egg").classList.remove("open"); }
 
-    // ✅ Improved address search:
-    // - DOES NOT use CA bbox filter (so "any address" can be found)
-    // - uses proximity bias near CA
-    // - shows a clear message if your key is origin-blocked
+    // ✅ Geocoding helper: show clear guidance if blocked (401/403)
+    function showGeocodeBlocked(status){
+      alert(
+        `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
+        `Key → Allowed HTTP Origins must be:\n` +
+        `oscarxvera.github.io\n\n` +
+        `No https:// and no /CheeseMap.github.io/`
+      );
+    }
+
+    // ✅ Apple-style search with suggestions that zoom exactly to an address (within CA)
     async function maptilerSearch(query){
       const q = (query || "").trim();
       if (q.length < 2) { closeDropdown(); return; }
@@ -527,7 +524,7 @@
         if (b) b.onclick = () => closeDropdown();
       }, 0);
 
-      // Bias results toward California (center-ish), but do NOT block non-CA results
+      // bias towards CA so suggestions are relevant, but still supports any valid US address strings
       const caCenterLng = -119.4179;
       const caCenterLat = 36.7783;
 
@@ -547,18 +544,17 @@
         res = await fetch(url, { headers: { "Accept": "application/json" }});
 
         if (!res.ok){
-          // Better guidance specifically for origin restriction
-          const likelyOriginBlock = (res.status === 401 || res.status === 403);
-          const msg = likelyOriginBlock
-            ? `Blocked (${res.status}). Fix: In MapTiler → Key → Allowed HTTP Origins, add: oscarxvera.github.io (NO https://, NO path).`
-            : `Search failed (${res.status}).`;
+          head.querySelector(".muted").textContent = "Blocked";
+          if (res.status === 401 || res.status === 403) showGeocodeBlocked(res.status);
 
           const row = document.createElement("div");
           row.className = "dd-item";
           row.innerHTML = `
             <div style="width:100%">
-              <div class="dd-title">Geocoding blocked</div>
-              <div class="dd-sub">${escapeHtml(msg)}</div>
+              <div class="dd-title">Search is blocked</div>
+              <div class="dd-sub">
+                Status: ${res.status}. Open MapTiler → Key → Allowed HTTP Origins → set to <b>oscarxvera.github.io</b>.
+              </div>
             </div>
           `;
           dd.appendChild(row);
@@ -567,12 +563,13 @@
 
         data = await res.json();
       } catch (e){
+        head.querySelector(".muted").textContent = "Error";
         const row = document.createElement("div");
         row.className = "dd-item";
         row.innerHTML = `
           <div style="width:100%">
             <div class="dd-title">Network error</div>
-            <div class="dd-sub">Couldn’t reach MapTiler. Check connection + key restrictions.</div>
+            <div class="dd-sub">Couldn’t reach MapTiler. Check internet + key restrictions.</div>
           </div>
         `;
         dd.appendChild(row);
@@ -588,7 +585,7 @@
         none.innerHTML = `
           <div style="width:100%">
             <div class="dd-title">No matches</div>
-            <div class="dd-sub">Try adding city/ZIP (example: “123 Main St, Fresno CA”).</div>
+            <div class="dd-sub">Try including city + ZIP (example: “123 Main St, Fresno CA 93722”).</div>
           </div>
         `;
         dd.appendChild(none);
@@ -635,17 +632,11 @@
         row.onclick = () => {
           closeDropdown();
 
-          selectedSearch = {
-            name: nameTop,
-            full: placeName,
-            lng, lat,
-            placeType
-          };
+          selectedSearch = { name: nameTop, full: placeName, lng, lat, placeType };
 
           $("search").value = placeName;
           $("clearSearch").classList.add("show");
 
-          // Only zoom within CA because map is locked
           if (!inCA){
             alert("That result is outside California. This map is locked to CA.");
             openSearchCard(selectedSearch);
@@ -653,7 +644,6 @@
           }
 
           setSearchMarker(lng, lat);
-
           const zoom = isAddress ? 18.2 : 15.6;
           map.flyTo({ center:[lng, lat], zoom, speed: 1.2, curve: 1.42 });
 
@@ -666,8 +656,6 @@
 
     function performSearch(){
       const q = ($("search").value || "").trim();
-
-      // Easter egg: IDEN
       if (q === "IDEN"){
         closeDropdown();
         closeSearchCard();
@@ -716,9 +704,9 @@
       $("btnHelp").onclick = () => {
         alert(
           "How to use:\n\n" +
-          "• Type any full address → Search (or press Enter)\n" +
+          "• Type an address → Search (or Enter)\n" +
           "• Click a suggestion to zoom exactly (within CA)\n" +
-          "• Use style menu for Dark/Satellite/Hybrid\n\n" +
+          "• Use the style menu for Dark/Satellite/Hybrid\n\n" +
           "Secret: type IDEN then Search"
         );
       };
@@ -726,7 +714,6 @@
       $("search").addEventListener("input", debounce((e) => {
         const v = e.target.value;
         $("clearSearch").classList.toggle("show", !!v);
-
         if (v.trim() === "IDEN") { closeDropdown(); return; }
         maptilerSearch(v);
       }, 250));
