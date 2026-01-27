@@ -1,71 +1,156 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CheeseMap</title>
 
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
 
 <style>
-html,body{margin:0;height:100%;background:#0b1220;color:#fff;font-family:system-ui}
-#map{position:fixed;inset:0}
-
-/* Toolbar */
-.toolbar{
-  position:fixed;top:12px;left:12px;right:12px;
-  z-index:10;
-  background:rgba(15,27,51,.75);
-  border-radius:16px;
-  padding:10px;
-  display:flex;
-  gap:8px;
-  align-items:center;
-  backdrop-filter:blur(12px)
-}
-.toolbar.hidden{transform:translateY(-120%)}
-
-/* Controls */
-input,select,button{
-  background:rgba(255,255,255,.1);
-  border:1px solid rgba(255,255,255,.15);
-  color:#fff;
-  border-radius:999px;
-  padding:8px 12px;
-}
-button{cursor:pointer}
-
-/* Toggle */
-.toggle{
-  position:fixed;
-  top:90px;right:14px;
-  z-index:11;
-  background:rgba(15,27,51,.75);
-  border-radius:999px;
-  padding:8px 12px;
-  cursor:pointer
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0b1220;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto;
 }
 
-/* Popup */
-.pinImg{max-width:200px;border-radius:10px;margin-top:6px}
+/* MAP */
+#map {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+
+/* TOOLBAR */
+.toolbar {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(20,30,45,.85);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: auto;
+  transition: transform .25s ease;
+}
+
+.toolbar.hidden {
+  transform: translateY(-140%);
+}
+
+/* INPUTS */
+.toolbar input,
+.toolbar select,
+.toolbar button {
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.18);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 999px;
+  outline: none;
+}
+
+.toolbar input {
+  flex: 1;
+}
+
+/* TOGGLE */
+.toggle {
+  position: fixed;
+  right: 14px;
+  top: 90px;
+  z-index: 11;
+  background: rgba(20,30,45,.9);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* POPUP IMAGE */
+.pin-img {
+  max-width: 200px;
+  margin-top: 6px;
+  border-radius: 10px;
+}
+
+/* EASTER EGG */
+.egg {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0,0,0,.75);
+  backdrop-filter: blur(8px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.egg.open { display: flex; }
+
+.egg-card {
+  max-width: 90vw;
+  max-height: 90vh;
+  background: rgba(15,27,51,.95);
+  border-radius: 18px;
+  padding: 12px;
+}
+
+.egg-card img {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+}
+
+.egg-close {
+  text-align: right;
+  margin-bottom: 6px;
+}
+
+.egg-close button {
+  background: rgba(255,255,255,.15);
+  border: none;
+  color: white;
+  border-radius: 999px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
 </style>
 </head>
 
 <body>
+
 <div id="map"></div>
 
 <div class="toolbar" id="toolbar">
   <strong>🧀 CheeseMap</strong>
-  <input id="search" placeholder="Search address…"/>
+  <input id="search" placeholder="Search address…" autocomplete="off">
   <select id="style">
     <option value="streets">Streets</option>
     <option value="dark">Dark</option>
     <option value="satellite">Satellite</option>
   </select>
-  <button id="doSearch">Search</button>
+  <button id="searchBtn">Search</button>
 </div>
 
-<div class="toggle" id="toggle">Hide</div>
+<div class="toggle" id="toggleBtn">Hide</div>
+
+<!-- EASTER EGG -->
+<div class="egg" id="egg">
+  <div class="egg-card">
+    <div class="egg-close">
+      <button id="closeEgg">✕</button>
+    </div>
+    <img src="iden.png" alt="IDEN">
+  </div>
+</div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
@@ -73,102 +158,143 @@ button{cursor:pointer}
 const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
 
 const STYLES = {
-  streets:`https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
-  dark:`https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
-  satellite:`https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`
+  streets: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+  dark: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
+  satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`
 };
 
 const CA_BOUNDS = [
-  [-124.48,32.52],
-  [-114.13,42.01]
+  [-124.48, 32.52],
+  [-114.13, 42.01]
 ];
 
 /* ================= STATE ================= */
 let map;
-let markers=[];
+let markers = [];
 
 /* ================= HELPERS ================= */
-const $ = id=>document.getElementById(id);
+const $ = id => document.getElementById(id);
 
-const inCA=(lng,lat)=>
-  lng>=CA_BOUNDS[0][0]&&lng<=CA_BOUNDS[1][0]&&
-  lat>=CA_BOUNDS[0][1]&&lat<=CA_BOUNDS[1][1];
+const inCA = (lng, lat) =>
+  lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
+  lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1];
 
-function applyBounds(){
+function applyBounds() {
   map.setMaxBounds(CA_BOUNDS);
   map.setMinZoom(5);
 }
 
-/* ================= MAP INIT ================= */
-map=new maplibregl.Map({
-  container:"map",
-  style:STYLES.streets,
-  bounds:CA_BOUNDS,
-  fitBoundsOptions:{padding:40},
-  pitch:45,
-  bearing:-15
+/* ================= MAP ================= */
+map = new maplibregl.Map({
+  container: "map",
+  style: STYLES.streets,
+  bounds: CA_BOUNDS,
+  fitBoundsOptions: { padding: 40 },
+  pitch: 45,
+  bearing: -15
 });
 
-map.on("load",applyBounds);
-map.on("style.load",applyBounds);
+map.on("load", applyBounds);
+map.on("style.load", () => {
+  applyBounds();
+  markers.forEach(m => m.addTo(map));
+});
 
 /* ================= SEARCH ================= */
-async function searchAddress(){
-  const q=$("search").value.trim();
-  if(q.length<2) return;
+async function searchAddress() {
+  const q = $("search").value.trim();
 
-  const url=`https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json?key=${MAPTILER_KEY}&country=us&limit=1`;
-  const res=await fetch(url);
-  if(!res.ok) return alert("Geocoding blocked – check key origins");
+  // 🥚 Easter Egg trigger
+  if (q.toUpperCase() === "IDEN") {
+    openEgg();
+    return;
+  }
 
-  const data=await res.json();
-  if(!data.features?.length) return alert("No results");
+  if (q.length < 2) return;
 
-  const [lng,lat]=data.features[0].center;
-  if(!inCA(lng,lat)) return alert("Outside California");
+  const url =
+    `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json` +
+    `?key=${MAPTILER_KEY}&country=us&limit=1`;
 
-  dropPin(lng,lat,data.features[0].place_name);
+  const res = await fetch(url);
+  if (!res.ok) {
+    alert("Geocoding blocked. Check MapTiler Allowed Origins.");
+    return;
+  }
+
+  const data = await res.json();
+  if (!data.features?.length) {
+    alert("No results found");
+    return;
+  }
+
+  const feature = data.features[0];
+  const [lng, lat] = feature.center;
+
+  if (!inCA(lng, lat)) {
+    alert("Result is outside California");
+    return;
+  }
+
+  dropPin(lng, lat, feature.place_name);
 }
 
 /* ================= PINS ================= */
-function dropPin(lng,lat,title){
-  const el=document.createElement("div");
-  el.style.cursor="pointer";
+function dropPin(lng, lat, title) {
+  const popup = document.createElement("div");
+  popup.innerHTML = `
+    <strong>${title}</strong><br>
+    <input type="file" accept="image/*">
+  `;
 
-  const marker=new maplibregl.Marker(el)
-    .setLngLat([lng,lat])
-    .addTo(map);
-
-  const popup=document.createElement("div");
-  popup.innerHTML=`<strong>${title}</strong><br><input type="file" accept="image/*"/>`;
-
-  popup.querySelector("input").onchange=e=>{
-    const img=document.createElement("img");
-    img.className="pinImg";
-    img.src=URL.createObjectURL(e.target.files[0]);
+  popup.querySelector("input").onchange = e => {
+    const img = document.createElement("img");
+    img.className = "pin-img";
+    img.src = URL.createObjectURL(e.target.files[0]);
     popup.appendChild(img);
   };
 
-  marker.setPopup(new maplibregl.Popup({offset:25}).setDOMContent(popup));
-  el.onclick=()=>map.flyTo({center:[lng,lat],zoom:17});
+  const marker = new maplibregl.Marker()
+    .setLngLat([lng, lat])
+    .setPopup(new maplibregl.Popup({ offset: 25 }).setDOMContent(popup))
+    .addTo(map);
+
+  marker.getElement().onclick = () => {
+    map.flyTo({ center: [lng, lat], zoom: 17 });
+  };
 
   markers.push(marker);
-  map.flyTo({center:[lng,lat],zoom:17});
+  map.flyTo({ center: [lng, lat], zoom: 17 });
 }
 
+/* ================= EGG ================= */
+function openEgg() {
+  $("egg").classList.add("open");
+}
+
+function closeEgg() {
+  $("egg").classList.remove("open");
+}
+
+$("closeEgg").onclick = closeEgg;
+$("egg").onclick = e => { if (e.target.id === "egg") closeEgg(); };
+
 /* ================= UI ================= */
-$("doSearch").onclick=searchAddress;
-$("search").onkeydown=e=>e.key==="Enter"&&searchAddress();
+$("searchBtn").onclick = searchAddress;
+$("search").addEventListener("keydown", e => {
+  if (e.key === "Enter") searchAddress();
+});
 
-$("style").onchange=e=>map.setStyle(STYLES[e.target.value]);
+$("style").onchange = e => map.setStyle(STYLES[e.target.value]);
 
-let hidden=false;
-$("toggle").onclick=()=>{
-  hidden=!hidden;
-  $("toolbar").classList.toggle("hidden",hidden);
-  $("toggle").textContent=hidden?"Show":"Hide";
-  $("toggle").style.top=hidden?"14px":"90px";
+let hidden = false;
+$("toggleBtn").onclick = () => {
+  hidden = !hidden;
+  $("toolbar").classList.toggle("hidden", hidden);
+  $("toggleBtn").textContent = hidden ? "Show" : "Hide";
+  $("toggleBtn").style.top = hidden ? "14px" : "90px";
 };
 </script>
+
 </body>
 </html>
