@@ -1,300 +1,868 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CheeseMap</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CheeseMap</title>
 
-<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet"/>
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 
-<style>
-html, body {
-  margin: 0;
-  height: 100%;
-  background: #0b1220;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto;
-}
+  <style>
+    :root{
+      --bg:#0b1220;
+      --border: rgba(255,255,255,.10);
+      --text:#eaf1ff;
+      --muted:#9bb0d0;
+      --accent:#6aa7ff;
+      --danger:#ff6a7a;
+      --shadow: 0 14px 40px rgba(0,0,0,.38);
+    }
+    *{box-sizing:border-box}
+    html, body {height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      overflow:hidden;
+    }
 
-/* MAP */
-#map {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-}
+    /* 🔥 CRITICAL FIX: map behind UI */
+    #map{position:fixed; inset:0; z-index:0;}
 
-/* TOOLBAR */
-.toolbar {
-  position: fixed;
-  top: 12px;
-  left: 12px;
-  right: 12px;
-  z-index: 10;
-  background: rgba(20,30,45,.85);
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  padding: 10px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  pointer-events: auto;
-  transition: transform .25s ease;
-}
+    .maplibregl-ctrl-attrib{
+      background: rgba(15,27,51,.75) !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      border-radius: 12px !important;
+      backdrop-filter: blur(10px);
+    }
 
-.toolbar.hidden {
-  transform: translateY(-140%);
-}
+    .topbarWrap{
+      position:fixed;
+      top:12px; left:12px; right:12px;
+      z-index:10;              /* 🔥 CRITICAL FIX */
+      pointer-events:none;     /* wrapper ignores clicks... */
+    }
+    .topbar{
+      pointer-events:auto;     /* ...but actual bar is clickable */
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      padding:10px 12px;
+      background: rgba(11,18,32,.58);
+      border:1px solid var(--border);
+      border-radius: 22px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+      transition: transform .22s ease, opacity .22s ease;
+    }
+    .topbar.collapsed{
+      transform: translateY(-120%);
+      opacity: 0;
+      pointer-events:none;
+    }
 
-/* INPUTS */
-.toolbar input,
-.toolbar select,
-.toolbar button {
-  background: rgba(255,255,255,.12);
-  border: 1px solid rgba(255,255,255,.18);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 999px;
-  outline: none;
-}
+    .brand{
+      display:flex; gap:10px; align-items:center;
+      font-weight:900;
+      letter-spacing:.2px;
+      padding-left:4px;
+      white-space:nowrap;
+      min-width: 140px;
+    }
+    .brand .dot{
+      width:10px; height:10px; border-radius:99px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(106,167,255,.55);
+      flex:0 0 auto;
+    }
+    .brand .sub{
+      color: var(--muted);
+      font-weight:700;
+      font-size: 12px;
+      margin-left:4px;
+    }
 
-.toolbar input {
-  flex: 1;
-}
+    .controls{
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      position:relative;
+      width: 100%;
+    }
 
-/* TOGGLE */
-.toggle {
-  position: fixed;
-  right: 14px;
-  top: 90px;
-  z-index: 11;
-  background: rgba(20,30,45,.9);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  user-select: none;
-}
+    .searchWrap{
+      position:relative;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width: min(560px, 62vw);
+      max-width: min(820px, 72vw);
+      flex: 1 1 auto;
+    }
+    .searchGroup{
+      position:relative;
+      width:100%;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
 
-/* POPUP IMAGE */
-.pin-img {
-  max-width: 200px;
-  margin-top: 6px;
-  border-radius: 10px;
-}
+    .search{
+      width:100%;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:11px 42px 11px 40px;
+      color: var(--text);
+      outline:none;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .search:focus{
+      background: rgba(255,255,255,.13);
+      border-color: rgba(106,167,255,.35);
+    }
+    .searchIcon{
+      position:absolute;
+      left:14px;
+      top:50%;
+      transform: translateY(-50%);
+      opacity:.85;
+      font-size: 14px;
+      pointer-events:none;
+    }
+    .clearBtn{
+      position:absolute;
+      right:10px;
+      top:50%;
+      transform: translateY(-50%);
+      border:none;
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      padding:6px 9px;
+      cursor:pointer;
+      display:none;
+    }
+    .clearBtn.show{display:block}
 
-/* EASTER EGG */
-.egg {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(0,0,0,.75);
-  backdrop-filter: blur(8px);
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
+    .select{
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:10px 10px;
+      color: var(--text);
+      outline:none;
+      cursor:pointer;
+      white-space:nowrap;
+    }
 
-.egg.open { display: flex; }
+    .btn{
+      border:1px solid rgba(255,255,255,.12);
+      background: var(--accent);
+      color:#071126;
+      font-weight:900;
+      padding:10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn.ghost{
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      font-weight:800;
+    }
+    .btn:active{transform: translateY(1px)}
 
-.egg-card {
-  max-width: 90vw;
-  max-height: 90vh;
-  background: rgba(15,27,51,.95);
-  border-radius: 18px;
-  padding: 12px;
-}
+    .togglePill{
+      pointer-events:auto;
+      position:fixed;
+      right:14px;
+      top:92px;
+      z-index:11; /* 🔥 above topbar */
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius: 999px;
+      background: rgba(11,18,32,.62);
+      border:1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+      cursor:pointer;
+      user-select:none;
+    }
+    .togglePill .k{
+      width:26px;height:26px;border-radius:999px;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:900;
+    }
+    .togglePill span{
+      font-weight:850;
+      font-size: 12px;
+      color: var(--text);
+    }
 
-.egg-card img {
-  max-width: 100%;
-  max-height: 80vh;
-  border-radius: 12px;
-}
+    .dropdown{
+      position:absolute;
+      top:56px;
+      right:0;
+      width:min(620px, 92vw);
+      background: rgba(15,27,51,.96);
+      border:1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:none;
+      z-index:11;
+      backdrop-filter: blur(12px);
+    }
+    .dropdown.open{display:block}
 
-.egg-close {
-  text-align: right;
-  margin-bottom: 6px;
-}
+    .dd-head{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+    }
+    .dd-head .muted{color:var(--muted); font-size:12px}
 
-.egg-close button {
-  background: rgba(255,255,255,.15);
-  border: none;
-  color: white;
-  border-radius: 999px;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-</style>
+    .dd-item{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+      display:flex; gap:10px; align-items:flex-start;
+    }
+    .dd-item:hover{background: rgba(255,255,255,.06)}
+    .dd-ico{
+      width:30px; height:30px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      display:flex; align-items:center; justify-content:center;
+      flex:0 0 auto;
+      margin-top:1px;
+    }
+    .dd-title{font-weight:900; font-size:13px; line-height:1.2}
+    .dd-sub{color: var(--muted); font-size:12px; margin-top:2px}
+
+    .searchCard{
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:10;
+      display:none;
+      background: rgba(15,27,51,.92);
+      border:1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      padding:12px;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .searchCard.open{display:flex}
+    .searchCard .txt{display:flex; flex-direction:column; gap:2px; overflow:hidden}
+    .searchCard .t1{font-weight:900; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .searchCard .t2{color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .searchCard .actions{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end}
+
+    .egg{
+      position:fixed; inset:0;
+      z-index:40;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+    }
+    .egg.open{display:flex}
+    .egg-card{
+      width:min(920px, 96vw);
+      background: rgba(15,27,51,.92);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .egg-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .egg-title{
+      font-weight:900;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      white-space:nowrap;
+    }
+    .egg-title .dot{
+      width:10px;height:10px;border-radius:99px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(106,167,255,.55);
+    }
+    .egg-body{
+      padding:12px;
+      display:flex;
+      justify-content:center;
+      background: rgba(0,0,0,.18);
+    }
+
+    @media (max-width: 720px){
+      .dropdown{right:auto; left:0; width: calc(100vw - 24px);}
+      .searchWrap{min-width: 100%; max-width: 100%;}
+      .searchCard{flex-direction:column; align-items:stretch}
+      .searchCard .actions{justify-content:stretch}
+      .searchCard .actions .btn{flex:1}
+      .brand{min-width:auto}
+      .topbar{border-radius: 18px}
+      .togglePill{top:124px;}
+    }
+  </style>
 </head>
 
 <body>
+  <div id="map"></div>
 
-<div id="map"></div>
+  <div class="topbarWrap">
+    <div class="topbar" id="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>CheeseMap</span>
+        <span class="sub">CA</span>
+      </div>
 
-<div class="toolbar" id="toolbar">
-  <strong>🧀 CheeseMap</strong>
-  <input id="search" placeholder="Search address…" autocomplete="off">
-  <select id="style">
-    <option value="streets">Streets</option>
-    <option value="dark">Dark</option>
-    <option value="satellite">Satellite</option>
-  </select>
-  <button id="searchBtn">Search</button>
-</div>
+      <div class="controls">
+        <select id="styleSel" class="select" title="Map style">
+          <option value="streets">Streets</option>
+          <option value="dark">Dark</option>
+          <option value="satellite">Satellite</option>
+          <option value="hybrid">Satellite + Labels</option>
+        </select>
 
-<div class="toggle" id="toggleBtn">Hide</div>
+        <div class="searchWrap">
+          <div class="searchGroup">
+            <span class="searchIcon">🔎</span>
+            <input id="search" class="search" type="text" placeholder="Search any full address (home, business, city)..." autocomplete="off" />
+            <button id="clearSearch" class="clearBtn" title="Clear">✕</button>
+          </div>
 
-<!-- EASTER EGG -->
-<div class="egg" id="egg">
-  <div class="egg-card">
-    <div class="egg-close">
-      <button id="closeEgg">✕</button>
+          <button id="btnSearch" class="btn ghost" title="Search">Search</button>
+          <div id="dropdown" class="dropdown"></div>
+        </div>
+
+        <button id="btnLocate" class="btn ghost">Locate</button>
+        <button id="btnHelp" class="btn ghost">Help</button>
+      </div>
     </div>
-    <img src="iden.png" alt="IDEN">
   </div>
-</div>
 
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
-<script>
-/* ================= CONFIG ================= */
-const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
+  <div class="togglePill" id="togglePill" title="Show/Hide toolbar">
+    <div class="k" id="toggleIcon">⌃</div>
+    <span id="toggleText">Hide</span>
+  </div>
 
-const STYLES = {
-  streets: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
-  dark: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
-  satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`
-};
+  <div class="searchCard" id="searchCard">
+    <div class="txt">
+      <div class="t1" id="scTitle">Result</div>
+      <div class="t2" id="scSub">Address</div>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="btnClearResult">Clear</button>
+    </div>
+  </div>
 
-const CA_BOUNDS = [
-  [-124.48, 32.52],
-  [-114.13, 42.01]
-];
+  <!-- Easter Egg Overlay -->
+  <div class="egg" id="egg">
+    <div class="egg-card">
+      <div class="egg-head">
+        <div class="egg-title"><span class="dot"></span> IDEN</div>
+        <button class="btn ghost" id="btnEggClose">✕</button>
+      </div>
 
-/* ================= STATE ================= */
-let map;
-let markers = [];
+      <div class="egg-body">
+        <img
+          id="eggImg"
+          src="iden.png?v=3"
+          alt="IDEN"
+          style="width:100%;height:auto;max-height:78vh;object-fit:contain;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.18);"
+          onerror="this.style.display='none';document.getElementById('eggImgErr').style.display='block';"
+        />
+        <div id="eggImgErr" style="display:none;color:rgba(255,255,255,.7);padding:16px;text-align:center;">
+          Image failed to load. Confirm <b>iden.png</b> is in the repo root (same folder as index.html).
+        </div>
+      </div>
+    </div>
+  </div>
 
-/* ================= HELPERS ================= */
-const $ = id => document.getElementById(id);
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-const inCA = (lng, lat) =>
-  lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
-  lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1];
+  <script>
+    // ✅ Your MapTiler key
+    const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
 
-function applyBounds() {
-  map.setMaxBounds(CA_BOUNDS);
-  map.setMinZoom(5);
-}
+    const STYLES = {
+      streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+      dark:      `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
+      satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
+      hybrid:    `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`
+    };
 
-/* ================= MAP ================= */
-map = new maplibregl.Map({
-  container: "map",
-  style: STYLES.streets,
-  bounds: CA_BOUNDS,
-  fitBoundsOptions: { padding: 40 },
-  pitch: 45,
-  bearing: -15
-});
+    const CA_BOUNDS = [
+      [-124.482003, 32.528832],
+      [-114.131211, 42.009518]
+    ];
 
-map.on("load", applyBounds);
-map.on("style.load", () => {
-  applyBounds();
-  markers.forEach(m => m.addTo(map));
-});
+    const $ = (id) => document.getElementById(id);
+    const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
 
-/* ================= SEARCH ================= */
-async function searchAddress() {
-  const q = $("search").value.trim();
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+    }
 
-  // 🥚 Easter Egg trigger
-  if (q.toUpperCase() === "IDEN") {
-    openEgg();
-    return;
-  }
+    function isInCA(lng, lat){
+      return (
+        lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
+        lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1]
+      );
+    }
 
-  if (q.length < 2) return;
+    let map;
 
-  const url =
-    `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json` +
-    `?key=${MAPTILER_KEY}&country=us&limit=1`;
+    // Markers/pins we add (so we can restore them after style changes)
+    const pins = []; // { marker, lng, lat, title, imgDataUrl? }
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    alert("Geocoding blocked. Check MapTiler Allowed Origins.");
-    return;
-  }
+    function applyCALock(){
+      map.setMaxBounds(CA_BOUNDS);
+      map.setMinZoom(5);
+      map.setMaxZoom(20);
+    }
 
-  const data = await res.json();
-  if (!data.features?.length) {
-    alert("No results found");
-    return;
-  }
+    function closeDropdown(){
+      $("dropdown").classList.remove("open");
+      $("dropdown").innerHTML = "";
+    }
 
-  const feature = data.features[0];
-  const [lng, lat] = feature.center;
+    function openSearchCard(feature){
+      $("scTitle").textContent = feature?.name || "Result";
+      $("scSub").textContent = feature?.full || "";
+      $("searchCard").classList.add("open");
+    }
 
-  if (!inCA(lng, lat)) {
-    alert("Result is outside California");
-    return;
-  }
+    function closeSearchCard(){
+      $("searchCard").classList.remove("open");
+    }
 
-  dropPin(lng, lat, feature.place_name);
-}
+    function openEgg(){ $("egg").classList.add("open"); }
+    function closeEgg(){ $("egg").classList.remove("open"); }
 
-/* ================= PINS ================= */
-function dropPin(lng, lat, title) {
-  const popup = document.createElement("div");
-  popup.innerHTML = `
-    <strong>${title}</strong><br>
-    <input type="file" accept="image/*">
-  `;
+    function showGeocodeBlocked(status){
+      alert(
+        `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
+        `Key → Allowed HTTP Origins must be EXACTLY one of:\n` +
+        `• oscarxvera.github.io\n` +
+        `OR\n` +
+        `• https://oscarxvera.github.io\n\n` +
+        `No paths, no duplicates.`
+      );
+    }
 
-  popup.querySelector("input").onchange = e => {
-    const img = document.createElement("img");
-    img.className = "pin-img";
-    img.src = URL.createObjectURL(e.target.files[0]);
-    popup.appendChild(img);
-  };
+    function makePinPopupContent(pin){
+      const wrap = document.createElement("div");
+      wrap.style.minWidth = "220px";
+      wrap.innerHTML = `
+        <div style="font-weight:900;margin-bottom:6px;">${escapeHtml(pin.title || "Pin")}</div>
+        <div style="color:rgba(255,255,255,.75);font-size:12px;margin-bottom:8px;">
+          ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)}
+        </div>
+        <label style="display:block;font-size:12px;color:rgba(255,255,255,.8);margin-bottom:6px;">
+          Add / change photo:
+        </label>
+        <input type="file" accept="image/*" style="width:100%;margin-bottom:8px;" />
+        <div id="imgSlot" style="width:100%;"></div>
+      `;
 
-  const marker = new maplibregl.Marker()
-    .setLngLat([lng, lat])
-    .setPopup(new maplibregl.Popup({ offset: 25 }).setDOMContent(popup))
-    .addTo(map);
+      const imgSlot = wrap.querySelector("#imgSlot");
+      const input = wrap.querySelector("input");
 
-  marker.getElement().onclick = () => {
-    map.flyTo({ center: [lng, lat], zoom: 17 });
-  };
+      const renderImage = () => {
+        imgSlot.innerHTML = "";
+        if (pin.imgDataUrl){
+          const img = document.createElement("img");
+          img.src = pin.imgDataUrl;
+          img.style.width = "100%";
+          img.style.borderRadius = "12px";
+          img.style.border = "1px solid rgba(255,255,255,.12)";
+          img.style.display = "block";
+          imgSlot.appendChild(img);
+        }
+      };
+      renderImage();
 
-  markers.push(marker);
-  map.flyTo({ center: [lng, lat], zoom: 17 });
-}
+      input.onchange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          pin.imgDataUrl = reader.result; // store in-memory
+          renderImage();
+        };
+        reader.readAsDataURL(file);
+      };
 
-/* ================= EGG ================= */
-function openEgg() {
-  $("egg").classList.add("open");
-}
+      return wrap;
+    }
 
-function closeEgg() {
-  $("egg").classList.remove("open");
-}
+    function addPin(lng, lat, title="Pin"){
+      const pin = { lng, lat, title, imgDataUrl: null, marker: null };
 
-$("closeEgg").onclick = closeEgg;
-$("egg").onclick = e => { if (e.target.id === "egg") closeEgg(); };
+      const marker = new maplibregl.Marker({ color: "#ffffff" })
+        .setLngLat([lng, lat])
+        .addTo(map);
 
-/* ================= UI ================= */
-$("searchBtn").onclick = searchAddress;
-$("search").addEventListener("keydown", e => {
-  if (e.key === "Enter") searchAddress();
-});
+      // Popup with photo upload
+      const popup = new maplibregl.Popup({ offset: 25 })
+        .setDOMContent(makePinPopupContent(pin));
 
-$("style").onchange = e => map.setStyle(STYLES[e.target.value]);
+      marker.setPopup(popup);
 
-let hidden = false;
-$("toggleBtn").onclick = () => {
-  hidden = !hidden;
-  $("toolbar").classList.toggle("hidden", hidden);
-  $("toggleBtn").textContent = hidden ? "Show" : "Hide";
-  $("toggleBtn").style.top = hidden ? "14px" : "90px";
-};
-</script>
+      marker.getElement().style.cursor = "pointer";
+      marker.getElement().addEventListener("click", () => {
+        map.flyTo({ center:[lng, lat], zoom: 17, speed: 1.2, curve: 1.42 });
+      });
 
+      pin.marker = marker;
+      pins.push(pin);
+      return pin;
+    }
+
+    function restorePinsAfterStyle(){
+      // Markers are DOM elements; after style.setStyle they may still exist,
+      // but re-adding is safe.
+      for (const pin of pins){
+        if (pin.marker){
+          pin.marker.addTo(map);
+        } else {
+          addPin(pin.lng, pin.lat, pin.title);
+        }
+      }
+    }
+
+    function initMap(){
+      map = new maplibregl.Map({
+        container: "map",
+        style: STYLES.streets,
+        bounds: CA_BOUNDS,
+        fitBoundsOptions: { padding: 40, maxZoom: 12 },
+        pitch: 45,
+        bearing: -15,
+        antialias: true
+      });
+
+      map.on("load", () => {
+        applyCALock();
+
+        // ✅ Click map to drop pins
+        map.on("click", (e) => {
+          const { lng, lat } = e.lngLat;
+          if (!isInCA(lng, lat)){
+            alert("Pins are limited to California.");
+            return;
+          }
+          const pin = addPin(lng, lat, "Dropped Pin");
+          map.flyTo({ center:[lng, lat], zoom: 16.5, speed: 1.2, curve: 1.42 });
+          openSearchCard({ name: pin.title, full: "Dropped on map", lng, lat });
+        });
+      });
+
+      // ✅ When style changes, re-apply bounds + restore pins
+      map.on("style.load", () => {
+        applyCALock();
+        restorePinsAfterStyle();
+      });
+    }
+
+    async function maptilerSearch(query){
+      const q = (query || "").trim();
+      if (q.length < 2) { closeDropdown(); return; }
+
+      const dd = $("dropdown");
+      dd.innerHTML = "";
+      dd.classList.add("open");
+
+      const head = document.createElement("div");
+      head.className = "dd-head";
+      head.innerHTML = `
+        <div class="muted">Searching…</div>
+        <button class="btn ghost" id="ddCloseBtn" style="padding:7px 10px;">Close</button>
+      `;
+      dd.appendChild(head);
+      setTimeout(() => {
+        const b = $("ddCloseBtn");
+        if (b) b.onclick = () => closeDropdown();
+      }, 0);
+
+      const caCenterLng = -119.4179;
+      const caCenterLat = 36.7783;
+
+      const url =
+        `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json` +
+        `?key=${MAPTILER_KEY}` +
+        `&limit=10` +
+        `&country=us` +
+        `&autocomplete=true` +
+        `&language=en` +
+        `&proximity=${caCenterLng},${caCenterLat}`;
+
+      let res, data;
+      try{
+        res = await fetch(url, { headers: { "Accept": "application/json" }});
+
+        if (!res.ok){
+          const text = await res.text().catch(()=> "");
+          console.error("Geocoding failed:", res.status, text);
+
+          head.querySelector(".muted").textContent = "Blocked";
+
+          const row = document.createElement("div");
+          row.className = "dd-item";
+          row.innerHTML = `
+            <div style="width:100%">
+              <div class="dd-title">Search is blocked</div>
+              <div class="dd-sub">Status: ${res.status}. Open DevTools → Console to see the exact MapTiler error.</div>
+            </div>
+          `;
+          dd.appendChild(row);
+
+          if (res.status === 401 || res.status === 403) showGeocodeBlocked(res.status);
+          return;
+        }
+
+        data = await res.json();
+      } catch (e){
+        head.querySelector(".muted").textContent = "Error";
+        console.error("Geocoding network error:", e);
+
+        const row = document.createElement("div");
+        row.className = "dd-item";
+        row.innerHTML = `
+          <div style="width:100%">
+            <div class="dd-title">Network error</div>
+            <div class="dd-sub">Couldn’t reach MapTiler. Check internet + key restrictions.</div>
+          </div>
+        `;
+        dd.appendChild(row);
+        return;
+      }
+
+      const feats = Array.isArray(data?.features) ? data.features : [];
+      head.querySelector(".muted").textContent = "Results";
+
+      if (!feats.length){
+        const none = document.createElement("div");
+        none.className = "dd-item";
+        none.innerHTML = `
+          <div style="width:100%">
+            <div class="dd-title">No matches</div>
+            <div class="dd-sub">Try including city + ZIP (example: “123 Main St, Fresno CA 93722”).</div>
+          </div>
+        `;
+        dd.appendChild(none);
+        return;
+      }
+
+      for (const f of feats){
+        const coords = f.center || f.geometry?.coordinates;
+        if (!coords || typeof coords[0] !== "number" || typeof coords[1] !== "number") continue;
+
+        const lng = coords[0];
+        const lat = coords[1];
+
+        const placeName =
+          f.place_name ||
+          f.text ||
+          f.properties?.name ||
+          "Result";
+
+        const nameTop = (f.text || placeName).split(",")[0] || placeName;
+        const placeType = (f.place_type && f.place_type[0]) ? f.place_type[0] : "";
+        const inCA = isInCA(lng, lat);
+
+        const row = document.createElement("div");
+        row.className = "dd-item";
+        row.innerHTML = `
+          <div class="dd-ico">📍</div>
+          <div style="min-width:0; width:100%;">
+            <div class="dd-title">
+              ${escapeHtml(nameTop)}
+              ${inCA ? "" : `<span style="color:var(--danger); font-weight:900; margin-left:8px; font-size:12px;">Outside CA</span>`}
+            </div>
+            <div class="dd-sub">${escapeHtml(placeName)}</div>
+          </div>
+        `;
+
+        row.onclick = () => {
+          closeDropdown();
+
+          $("search").value = placeName;
+          $("clearSearch").classList.add("show");
+
+          if (!inCA){
+            alert("That result is outside California. This map is locked to CA.");
+            openSearchCard({ name: nameTop, full: placeName });
+            return;
+          }
+
+          // ✅ Drop a pin for the searched address
+          const pinTitle = (placeType === "address") ? nameTop : placeName;
+          addPin(lng, lat, pinTitle);
+
+          const zoom = (placeType === "address") ? 18.2 : 15.6;
+          map.flyTo({ center:[lng, lat], zoom, speed: 1.2, curve: 1.42 });
+
+          openSearchCard({ name: pinTitle, full: placeName, lng, lat });
+        };
+
+        dd.appendChild(row);
+      }
+    }
+
+    function performSearch(){
+      const q = ($("search").value || "").trim();
+
+      // ✅ Easter egg: ONLY when typed IDEN in all caps
+      if (q === "IDEN"){
+        closeDropdown();
+        closeSearchCard();
+        openEgg();
+        return;
+      }
+
+      maptilerSearch(q);
+    }
+
+    function locateMe(){
+      if (!navigator.geolocation){
+        alert("Geolocation not available in this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          if (!isInCA(longitude, latitude)){
+            alert("Your location appears outside California. The map is locked to CA.");
+            return;
+          }
+          map.flyTo({ center:[longitude, latitude], zoom: 14.5, speed: 1.2, curve: 1.42 });
+        },
+        () => alert("Couldn’t get your location. Check browser permissions."),
+        { enableHighAccuracy:true, timeout: 10000 }
+      );
+    }
+
+    function setToolbarCollapsed(collapsed){
+      const topbar = $("topbar");
+      topbar.classList.toggle("collapsed", collapsed);
+      $("toggleIcon").textContent = collapsed ? "⌄" : "⌃";
+      $("toggleText").textContent = collapsed ? "Show" : "Hide";
+      $("togglePill").style.top = collapsed ? "14px" : "92px";
+      if (collapsed) closeDropdown();
+    }
+
+    function wireUI(){
+      $("styleSel").addEventListener("change", () => {
+        const v = $("styleSel").value;
+        map.setStyle(STYLES[v] || STYLES.streets);
+      });
+
+      $("btnLocate").onclick = () => locateMe();
+
+      $("btnHelp").onclick = () => {
+        alert(
+          "How to use:\n\n" +
+          "• Type an address → Search (or Enter)\n" +
+          "• Click a suggestion to zoom + drop a pin (CA only)\n" +
+          "• Click map to drop a pin anywhere in CA\n" +
+          "• Click a pin to zoom; open its popup to add a photo\n" +
+          "• Use style menu for Dark/Satellite/Hybrid\n\n" +
+          "Secret: type IDEN (all caps) then Search\n\n" +
+          "If search is blocked, open DevTools → Console for the exact MapTiler error."
+        );
+      };
+
+      $("search").addEventListener("input", debounce((e) => {
+        const v = e.target.value;
+        $("clearSearch").classList.toggle("show", !!v);
+        if (v.trim() === "IDEN") { closeDropdown(); return; }
+        maptilerSearch(v);
+      }, 250));
+
+      $("search").addEventListener("keydown", (e) => {
+        if (e.key === "Enter"){
+          e.preventDefault();
+          performSearch();
+        }
+      });
+
+      $("btnSearch").onclick = () => performSearch();
+
+      $("clearSearch").onclick = () => {
+        $("search").value = "";
+        $("clearSearch").classList.remove("show");
+        closeDropdown();
+        closeSearchCard();
+      };
+
+      document.addEventListener("click", (ev) => {
+        const dd = $("dropdown");
+        const searchWrap = document.querySelector(".searchWrap");
+        if (dd.classList.contains("open") && searchWrap && !searchWrap.contains(ev.target)) {
+          closeDropdown();
+        }
+      });
+
+      $("btnClearResult").onclick = () => closeSearchCard();
+
+      $("btnEggClose").onclick = () => closeEgg();
+      $("egg").addEventListener("click", (e) => { if (e.target && e.target.id === "egg") closeEgg(); });
+
+      let collapsed = false;
+      $("togglePill").onclick = () => {
+        collapsed = !collapsed;
+        setToolbarCollapsed(collapsed);
+      };
+      setToolbarCollapsed(false);
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeDropdown();
+          closeSearchCard();
+          if ($("egg").classList.contains("open")) closeEgg();
+        }
+      });
+    }
+
+    initMap();
+    wireUI();
+  </script>
 </body>
 </html>
