@@ -893,12 +893,14 @@
       if(!user) return false;
       if(pin.ownerUid !== user.uid) return false;
 
-      // Only allow deletion if there ARE photos (per your request)
-      const photos = await loadPhotos(pin.id);
-      if(!photos.length){
-        alert("This pin has no photos yet, so it can’t be deleted (rule you wanted).");
-        return false;
-      }
+     const photos = await loadPhotos(pin.id);
+
+// If there ARE photos → confirm
+if (photos.length) {
+  const ok = confirm("Are you sure you want to delete this pin and its photos?");
+  if (!ok) return false;
+}
+// If there are NO photos → delete silently (no popup)
 
       const ok = confirm("Are you sure you want to delete this pin? This will remove its photos too.");
       if(!ok) return false;
@@ -1131,14 +1133,16 @@
         map.flyTo({ center:[lng, lat], zoom: 17, speed: 1.2, curve: 1.42 });
       });
 
-      markerEl.addEventListener("dblclick", async (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const user = currentUser();
-        if(!user || pin.ownerUid !== user.uid) return;
-        await deletePinWithPhotos(pin);
-      });
+      markerEl.addEventListener("contextmenu", async (ev) => {
+  ev.preventDefault();
+  ev.stopPropagation();
 
+  const user = currentUser();
+  if (!user || pin.ownerUid !== user.uid) return;
+
+  // Delete pin (photos or not)
+  await deletePinWithPhotos(pin);
+});
       pins.set(pin.id, pin);
 
       if(!opts.fromDb){
