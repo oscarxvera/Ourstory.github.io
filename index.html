@@ -3,19 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CheeseMap</title>
+  <title>Our Story • Interactive Map</title>
 
   <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 
   <style>
     :root{
       --bg:#0b1220;
+      --panel: rgba(15,27,51,.92);
+      --panel2: rgba(11,18,32,.62);
       --border: rgba(255,255,255,.10);
       --text:#eaf1ff;
       --muted:#9bb0d0;
       --accent:#6aa7ff;
       --danger:#ff6a7a;
+      --ok:#5dffb0;
       --shadow: 0 14px 40px rgba(0,0,0,.38);
+      --shadow2: 0 8px 22px rgba(0,0,0,.35);
+      --radius: 18px;
     }
     *{box-sizing:border-box}
     html, body {height:100%}
@@ -27,7 +32,7 @@
       overflow:hidden;
     }
 
-    /* ✅ CRITICAL: map behind UI so you can type */
+    /* Map behind UI */
     #map{position:fixed; inset:0; z-index:0}
 
     .maplibregl-ctrl-attrib{
@@ -37,6 +42,7 @@
       backdrop-filter: blur(10px);
     }
 
+    /* ===== Topbar ===== */
     .topbarWrap{
       position:fixed;
       top:12px; left:12px; right:12px;
@@ -69,7 +75,7 @@
       letter-spacing:.2px;
       padding-left:4px;
       white-space:nowrap;
-      min-width: 140px;
+      min-width: 200px;
     }
     .brand .dot{
       width:10px; height:10px; border-radius:99px;
@@ -79,7 +85,7 @@
     }
     .brand .sub{
       color: var(--muted);
-      font-weight:700;
+      font-weight:800;
       font-size: 12px;
       margin-left:4px;
     }
@@ -100,7 +106,7 @@
       align-items:center;
       gap:8px;
       min-width: min(560px, 62vw);
-      max-width: min(820px, 72vw);
+      max-width: min(860px, 72vw);
       flex: 1 1 auto;
     }
     .searchGroup{
@@ -171,11 +177,25 @@
       cursor:pointer;
       user-select:none;
       white-space:nowrap;
+      box-shadow: var(--shadow2);
     }
     .btn.ghost{
       background: rgba(255,255,255,.10);
       color: var(--text);
-      font-weight:800;
+      font-weight:850;
+      box-shadow:none;
+    }
+    .btn.danger{
+      background: rgba(255,106,122,.18);
+      color: #ffd7dc;
+      border-color: rgba(255,106,122,.22);
+      box-shadow:none;
+    }
+    .btn.ok{
+      background: rgba(93,255,176,.18);
+      color: #d5ffe9;
+      border-color: rgba(93,255,176,.22);
+      box-shadow:none;
     }
     .btn:active{transform: translateY(1px)}
 
@@ -210,14 +230,15 @@
       color: var(--text);
     }
 
+    /* Dropdown */
     .dropdown{
       position:absolute;
       top:56px;
       right:0;
-      width:min(620px, 92vw);
+      width:min(680px, 92vw);
       background: rgba(15,27,51,.96);
       border:1px solid var(--border);
-      border-radius: 18px;
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
       overflow:hidden;
       display:none;
@@ -234,7 +255,7 @@
       align-items:center;
       gap:10px;
     }
-    .dd-head .muted{color:var(--muted); font-size:12px}
+    .dd-head .muted{color:var(--muted); font-size:12px; font-weight:800}
 
     .dd-item{
       padding:10px 12px;
@@ -254,7 +275,24 @@
     }
     .dd-title{font-weight:900; font-size:13px; line-height:1.2}
     .dd-sub{color: var(--muted); font-size:12px; margin-top:2px}
+    .dd-actions{display:flex; gap:8px; align-items:center; margin-left:auto; flex:0 0 auto}
+    .dd-pill{
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border-radius: 999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:900;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .dd-pill.accent{
+      background: rgba(106,167,255,.18);
+      border-color: rgba(106,167,255,.28);
+    }
 
+    /* Search Card */
     .searchCard{
       position:fixed;
       left:12px;
@@ -264,7 +302,7 @@
       display:none;
       background: rgba(15,27,51,.92);
       border:1px solid var(--border);
-      border-radius: 18px;
+      border-radius: var(--radius);
       box-shadow: var(--shadow);
       backdrop-filter: blur(12px);
       padding:12px;
@@ -326,31 +364,120 @@
       background: rgba(0,0,0,.18);
     }
 
-    /* ===== Gallery popup UI ===== */
-    .gPop{min-width:280px; max-width:340px; color:#0b1220; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;}
-    .gTop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
-    .gTitle{font-weight:900;font-size:13px;line-height:1.2;color:#071126}
-    .gMeta{font-size:12px;color:rgba(7,17,38,.65);margin-top:4px}
-    .gAuthRow{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
-    .gBtn{border:0;border-radius:999px;padding:7px 10px;font-weight:900;cursor:pointer}
-    .gBtn.primary{background:#6aa7ff;color:#071126}
-    .gBtn.ghost{background:rgba(7,17,38,.08);color:#071126}
-    .gCard{margin-top:10px;border-radius:14px;overflow:hidden;border:1px solid rgba(7,17,38,.10);background:#fff}
-    .gStage{position:relative;aspect-ratio: 4/3;background:rgba(7,17,38,.06);display:flex;align-items:center;justify-content:center}
-    .gStage img{width:100%;height:100%;object-fit:cover;display:block}
-    .gNav{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:8px;pointer-events:none}
-    .gNav button{pointer-events:auto;width:34px;height:34px;border-radius:999px;border:0;background:rgba(255,255,255,.92);cursor:pointer;font-weight:900}
-    .gThumbs{display:flex;gap:6px;overflow:auto;padding:8px;background:#fff}
-    .gThumbs img{width:44px;height:44px;border-radius:10px;object-fit:cover;cursor:pointer;border:2px solid transparent}
-    .gThumbs img.active{border-color:#6aa7ff}
-    .gFooter{padding:8px;background:#fff;border-top:1px solid rgba(7,17,38,.08);display:flex;flex-direction:column;gap:8px}
-    .gRow{display:flex;justify-content:space-between;gap:8px;align-items:center}
-    .gSmall{font-size:12px;color:rgba(7,17,38,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
-    .gFile{display:none}
-    .gUploadLabel{display:inline-flex;align-items:center;gap:8px}
-    .gX{font-size:12px; padding:6px 9px}
-    .gHint{font-size:12px;color:rgba(7,17,38,.6);margin-top:8px}
-    .gText{
+    /* ===== Popup UI (Our Story) ===== */
+    .pPop{
+      min-width: 300px;
+      max-width: 380px;
+      color:#0b1220;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    .pTop{
+      display:flex;justify-content:space-between;gap:8px;align-items:flex-start
+    }
+    .pTitle{
+      font-weight:1000;
+      font-size:13px;
+      line-height:1.2;
+      color:#071126;
+      letter-spacing:.15px;
+    }
+    .pMeta{font-size:12px;color:rgba(7,17,38,.65);margin-top:4px}
+
+    .pChipRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px}
+    .chip{
+      border-radius:999px;
+      padding:6px 9px;
+      font-size:11px;
+      font-weight:900;
+      background: rgba(7,17,38,.06);
+      border:1px solid rgba(7,17,38,.10);
+      color: rgba(7,17,38,.75);
+      white-space:nowrap;
+    }
+
+    .pCard{
+      margin-top:10px;
+      border-radius: 16px;
+      overflow:hidden;
+      border:1px solid rgba(7,17,38,.10);
+      background:#fff;
+      box-shadow: 0 10px 25px rgba(0,0,0,.10);
+    }
+
+    .stage{
+      position:relative;
+      aspect-ratio: 4/3;
+      background:rgba(7,17,38,.06);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .stage img{width:100%;height:100%;object-fit:cover;display:block}
+    .nav{
+      position:absolute;inset:0;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:8px;
+      pointer-events:none;
+    }
+    .nav button{
+      pointer-events:auto;
+      width:34px;height:34px;
+      border-radius:999px;border:0;
+      background:rgba(255,255,255,.92);
+      cursor:pointer;
+      font-weight:900
+    }
+
+    .thumbs{
+      display:flex;
+      gap:6px;
+      overflow:auto;
+      padding:8px;
+      background:#fff
+    }
+    .thumbs img{
+      width:44px;height:44px;
+      border-radius:12px;
+      object-fit:cover;
+      cursor:pointer;
+      border:2px solid transparent
+    }
+    .thumbs img.active{border-color:#6aa7ff}
+
+    .footer{
+      padding:10px;
+      background:#fff;
+      border-top:1px solid rgba(7,17,38,.08);
+      display:flex;
+      flex-direction:column;
+      gap:10px
+    }
+    .row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+    .small{
+      font-size:12px;
+      color:rgba(7,17,38,.65);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width:260px
+    }
+
+    .pillBtn{
+      border:0;border-radius:999px;
+      padding:8px 10px;
+      font-weight:1000;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .pillBtn.primary{background:#6aa7ff;color:#071126}
+    .pillBtn.ghost{background:rgba(7,17,38,.08);color:#071126}
+
+    .file{display:none}
+    .uploadLabel{display:inline-flex;align-items:center;gap:8px}
+
+    .field{
       width:100%;
       padding:10px 10px;
       border-radius:12px;
@@ -358,11 +485,27 @@
       outline:none;
       font-size:12px;
       resize:vertical;
-      min-height:40px;
-      max-height:120px;
     }
-    .gText:focus{border-color: rgba(106,167,255,.55)}
-    .maplibregl-popup-content{border-radius:14px; padding:12px}
+    .field:focus{border-color: rgba(106,167,255,.55)}
+    .field.smallH{min-height:42px; max-height:84px}
+    .field.medH{min-height:86px; max-height:160px}
+
+    .hint{
+      font-size:12px;
+      color:rgba(7,17,38,.55);
+      line-height:1.35;
+    }
+
+    .divider{
+      height:1px;
+      background: rgba(7,17,38,.08);
+      margin:4px 0;
+    }
+
+    .audioWrap audio{width:100%}
+
+    /* Make MapLibre popup background nice */
+    .maplibregl-popup-content{border-radius:16px; padding:12px}
     .maplibregl-popup-close-button{font-size:16px}
 
     /* ===== Auth modal ===== */
@@ -389,14 +532,14 @@
       display:flex;align-items:center;justify-content:space-between;gap:10px;
       padding:12px 12px;border-bottom:1px solid rgba(255,255,255,.10)
     }
-    .auth-title{font-weight:900}
+    .auth-title{font-weight:1000}
     .auth-body{padding:12px;display:flex;flex-direction:column;gap:10px}
     .auth-tabs{display:flex;gap:8px;flex-wrap:wrap}
     .auth-tab{
       border:1px solid rgba(255,255,255,.14);
       background: rgba(255,255,255,.08);
       color: var(--text);
-      padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:900;font-size:12px;
+      padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:1000;font-size:12px;
     }
     .auth-tab.active{
       background: var(--accent);
@@ -418,12 +561,12 @@
     .auth-error{color:#ffb3bb;font-size:12px;display:none}
     .auth-error.show{display:block}
 
-    /* ===== Right-click context menu ===== */
+    /* ===== Context menu ===== */
     .ctx{
       position:fixed;
       z-index:65;
       display:none;
-      min-width: 190px;
+      min-width: 220px;
       background: rgba(15,27,51,.96);
       border:1px solid rgba(255,255,255,.12);
       border-radius: 14px;
@@ -437,11 +580,13 @@
       cursor:pointer;
       display:flex;align-items:center;gap:10px;
       border-bottom:1px solid rgba(255,255,255,.06);
-      font-weight:900;
+      font-weight:1000;
     }
     .ctx .item:last-child{border-bottom:0}
     .ctx .item:hover{background: rgba(255,255,255,.06)}
-    .ctx .sub{font-weight:800;color:var(--muted);font-size:12px;margin-left:auto}
+    .ctx .sub{font-weight:850;color:var(--muted);font-size:12px;margin-left:auto}
+    .ctx .danger{color:#ffb3bb}
+    .ctx .muted{color:var(--muted); font-weight:850}
 
     @media (max-width: 720px){
       .dropdown{right:auto; left:0; width: calc(100vw - 24px);}
@@ -463,8 +608,8 @@
     <div class="topbar" id="topbar">
       <div class="brand">
         <span class="dot"></span>
-        <span>CheeseMap</span>
-        <span class="sub">CA</span>
+        <span>Our Story Map</span>
+        <span class="sub">memories</span>
       </div>
 
       <div class="controls">
@@ -478,7 +623,7 @@
         <div class="searchWrap">
           <div class="searchGroup">
             <span class="searchIcon">🔎</span>
-            <input id="search" class="search" type="text" placeholder="Search any full address (home, business, city)..." autocomplete="off" />
+            <input id="search" class="search" type="text" placeholder="Search an address (first date, proposal spot…)" autocomplete="off" />
             <button id="clearSearch" class="clearBtn" title="Clear">✕</button>
           </div>
 
@@ -503,7 +648,8 @@
       <div class="t2" id="scSub">Address</div>
     </div>
     <div class="actions">
-      <button class="btn ghost" id="btnClearResult">Clear</button>
+      <button class="btn ghost" id="btnAddPinFromResult" style="display:none;">Add pin here</button>
+      <button class="btn ghost" id="btnClearResult">Close</button>
     </div>
   </div>
 
@@ -533,12 +679,12 @@
   <div class="auth" id="authModal" aria-hidden="true">
     <div class="auth-card">
       <div class="auth-head">
-        <div class="auth-title">Sign in to add pins</div>
+        <div class="auth-title">Sign in to add pins & upload photos</div>
         <button class="btn ghost" id="authClose">✕</button>
       </div>
       <div class="auth-body">
         <div class="auth-note">
-          You need an account to add pins. You can still view the map and photos without signing in.
+          You can browse memories without signing in. Signing in lets you add memories and upload photos.
         </div>
 
         <div class="auth-tabs">
@@ -557,21 +703,22 @@
         </div>
 
         <div class="auth-note">
-          If you use email/password, make sure you enabled <b>Email/Password</b> in Firebase Authentication → Sign-in method.
+          If you use email/password, enable <b>Email/Password</b> in Firebase Authentication → Sign-in method.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Right-click context menu -->
+  <!-- Context menu -->
   <div class="ctx" id="ctxMenu">
-    <div class="item" id="ctxAddPin">📌 Add a pin here <span class="sub">Right-click</span></div>
-    <div class="item" id="ctxClose">✕ Close</div>
+    <div class="item" id="ctxAddPin">📌 Add a memory pin here <span class="sub">Map</span></div>
+    <div class="item" id="ctxDeletePin" style="display:none;">🗑️ Delete this pin <span class="sub danger">Owner</span></div>
+    <div class="item" id="ctxClose">✕ Close <span class="sub muted">Esc</span></div>
   </div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 
-  <!-- ================= Firebase (required for accounts + photo storage) ================= -->
+  <!-- ================= Firebase (accounts + Firestore + Storage) ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import {
@@ -594,7 +741,8 @@
       query,
       orderBy,
       serverTimestamp,
-      deleteDoc
+      deleteDoc,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
     import {
       getStorage,
@@ -604,6 +752,7 @@
       deleteObject
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
+    // Your Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyArJ2PR7-YJpjtlsVnZaCUNireuVpdq6ZE",
       authDomain: "the-map-f43ff.firebaseapp.com",
@@ -624,1004 +773,1213 @@
       auth, db, storage, provider,
       signInWithPopup, signOut, onAuthStateChanged,
       createUserWithEmailAndPassword, signInWithEmailAndPassword,
-      doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, deleteDoc,
+      doc, setDoc, getDoc, updateDoc, collection, addDoc, getDocs, query, orderBy, serverTimestamp, deleteDoc,
       ref, uploadBytes, getDownloadURL, deleteObject
     };
   </script>
 
-<!-- ================= App Script ================= -->
-<script>
-  // ✅ MapTiler key (for map + geocoding)
-  const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
+  <!-- ================= App Script ================= -->
+  <script>
+    // ✅ MapTiler key (for map + geocoding)
+    const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
 
-  const STYLES = {
-    streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
-    dark:      `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
-    satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
-    hybrid:    `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`
-  };
-
-  const CA_BOUNDS = [
-    [-124.482003, 32.528832],
-    [-114.131211, 42.009518]
-  ];
-
-  const $ = (id) => document.getElementById(id);
-  const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
-
-  function escapeHtml(s){
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[c]));
-  }
-
-  function isInCA(lng, lat){
-    return (
-      lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
-      lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1]
-    );
-  }
-
-  function showGeocodeBlocked(status){
-    alert(
-      `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
-      `Key → Allowed HTTP Origins must be EXACTLY one of:\n` +
-      `• oscarxvera.github.io\n` +
-      `OR\n` +
-      `• https://oscarxvera.github.io\n\n` +
-      `No paths, no duplicates.`
-    );
-  }
-
-  // ===== Firebase helpers =====
-  async function ensureFirebaseReady(){
-    const maxMs = 5000;
-    const start = Date.now();
-    while(!window.__fb){
-      if(Date.now() - start > maxMs) break;
-      await new Promise(r => setTimeout(r, 20));
-    }
-    return !!window.__fb;
-  }
-  function currentUser(){
-    return window.__fb?.auth?.currentUser || null;
-  }
-
-  // Deterministic user color from uid (same person always same color)
-  function colorFromUid(uid){
-    if(!uid) return "#ffffff";
-    let hash = 0;
-    for (let i=0;i<uid.length;i++) { hash = ((hash<<5)-hash) + uid.charCodeAt(i); hash |= 0; }
-    const hue = Math.abs(hash) % 360;
-    return `hsl(${hue} 85% 62%)`;
-  }
-
-  // ===== Auth modal =====
-  let authMode = "signin"; // "signin" | "create"
-  let authResolve = null;
-
-  function setAuthMode(mode){
-    authMode = mode;
-    $("tabSignIn").classList.toggle("active", mode === "signin");
-    $("tabCreate").classList.toggle("active", mode === "create");
-    $("btnEmailAction").textContent = mode === "signin" ? "Sign in" : "Create account";
-    $("authPass").setAttribute("autocomplete", mode === "signin" ? "current-password" : "new-password");
-    hideAuthError();
-  }
-  function showAuthError(msg){
-    const el = $("authErr");
-    el.textContent = msg || "Something went wrong.";
-    el.classList.add("show");
-  }
-  function hideAuthError(){
-    const el = $("authErr");
-    el.textContent = "";
-    el.classList.remove("show");
-  }
-  function openAuthModal(){
-    $("authModal").classList.add("open");
-    $("authModal").setAttribute("aria-hidden","false");
-    setAuthMode("signin");
-    $("authEmail").focus();
-    return new Promise((resolve)=>{ authResolve = resolve; });
-  }
-  function closeAuthModal(ok=false){
-    $("authModal").classList.remove("open");
-    $("authModal").setAttribute("aria-hidden","true");
-    hideAuthError();
-    if(authResolve){ authResolve(ok); authResolve = null; }
-  }
-  async function requireAuthOrPrompt(){
-    if(!await ensureFirebaseReady()){
-      alert("Firebase not configured. Paste your Firebase config in the module script block.");
-      return false;
-    }
-    if(currentUser()) return true;
-    const ok = await openAuthModal();
-    return !!ok && !!currentUser();
-  }
-
-  // ===== Context menu (right click / long press) =====
-  let ctxLngLat = null;
-  let ctxTargetPinId = null;
-
-  function openCtxMenu(x, y, lngLat, pinId=null){
-    ctxLngLat = lngLat;
-    ctxTargetPinId = pinId;
-
-    const addRow = $("ctxAddPin");
-    const delRow = $("ctxDeletePin");
-
-    // If user opened the menu on a pin, show Delete, hide Add.
-    // If user opened on map background, show Add, hide Delete.
-    const onPin = !!pinId;
-    addRow.style.display = onPin ? "none" : "flex";
-    delRow.style.display = onPin ? "flex" : "none";
-
-    const menu = $("ctxMenu");
-    menu.style.left = `${Math.min(x, window.innerWidth - 220)}px`;
-    menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
-    menu.classList.add("open");
-  }
-
-  function closeCtxMenu(){
-    $("ctxMenu").classList.remove("open");
-    ctxLngLat = null;
-    ctxTargetPinId = null;
-  }
-
-  // ===== Map + pins =====
-  let map;
-  const pins = new Map(); // pinId -> pin object
-
-  function applyCALock(){
-    map.setMaxBounds(CA_BOUNDS);
-    map.setMinZoom(5);
-    map.setMaxZoom(20);
-  }
-
-  function closeDropdown(){
-    $("dropdown").classList.remove("open");
-    $("dropdown").innerHTML = "";
-  }
-
-  function openSearchCard(feature){
-    $("scTitle").textContent = feature?.name || "Result";
-    $("scSub").textContent = feature?.full || "";
-    $("searchCard").classList.add("open");
-  }
-
-  function closeSearchCard(){
-    $("searchCard").classList.remove("open");
-  }
-
-  function openEgg(){ $("egg").classList.add("open"); }
-  function closeEgg(){ $("egg").classList.remove("open"); }
-
-  function pinIdFromLngLat(lng, lat){
-    return `pin_${lng.toFixed(5)}_${lat.toFixed(5)}`
-      .replaceAll(".", "_")
-      .replaceAll("-", "m");
-  }
-
-  function makeMarkerEl(color){
-    const el = document.createElement("div");
-    el.style.width = "18px";
-    el.style.height = "18px";
-    el.style.borderRadius = "999px";
-    el.style.background = color || "#ffffff";
-    el.style.border = "2px solid rgba(255,255,255,.95)";
-    el.style.boxShadow = "0 10px 22px rgba(0,0,0,.35)";
-    el.style.cursor = "pointer";
-    return el;
-  }
-
-  // ========= Firestore pin + photos =========
-  async function ensurePinDoc(pin, isNew=false){
-    if(!await ensureFirebaseReady()) return;
-
-    const { db, doc, setDoc, getDoc, serverTimestamp } = window.__fb;
-    const refDoc = doc(db, "pins", pin.id);
-    const snap = await getDoc(refDoc);
-
-    const payload = {
-      id: pin.id,
-      title: pin.title || "Pin",
-      address: pin.address || "",
-      lng: pin.lng,
-      lat: pin.lat,
-      ownerUid: pin.ownerUid || null,
-      ownerName: pin.ownerName || "",
-      ownerColor: pin.ownerColor || "#ffffff",
-      updatedAt: serverTimestamp()
+    const STYLES = {
+      streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+      dark:      `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`,
+      satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
+      hybrid:    `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`
     };
-    if(isNew) payload.createdAt = serverTimestamp();
 
-    if(!snap.exists()){
-      await setDoc(refDoc, payload, { merge:true });
-    } else {
-      await setDoc(refDoc, payload, { merge:true });
+    // If you want worldwide memories later, remove CA_BOUNDS and isInCA() checks.
+    const CA_BOUNDS = [
+      [-124.482003, 32.528832],
+      [-114.131211, 42.009518]
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
+
+    function escapeHtml(s){
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
     }
-  }
 
-  async function loadAllPins(){
-    if(!await ensureFirebaseReady()) return;
-    const { db, collection, getDocs } = window.__fb;
-    const col = collection(db, "pins");
-    const snap = await getDocs(col);
-
-    for (const d of snap.docs){
-      const p = d.data();
-      if(!p || typeof p.lng !== "number" || typeof p.lat !== "number") continue;
-      if(!isInCA(p.lng, p.lat)) continue;
-
-      const id = p.id || d.id;
-      if(pins.has(id)) continue;
-
-      addPin(p.lng, p.lat, p.title || "Pin", p.address || "", {
-        id,
-        ownerUid: p.ownerUid || null,
-        ownerName: p.ownerName || "",
-        ownerColor: p.ownerColor || "#ffffff",
-        fromDb: true
-      });
+    function isInCA(lng, lat){
+      return (
+        lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
+        lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1]
+      );
     }
-  }
 
-  async function loadPhotos(pinId){
-    if(!await ensureFirebaseReady()) return [];
-    const { db, collection, getDocs, query, orderBy } = window.__fb;
-    const col = collection(db, "pins", pinId, "photos");
-    const q = query(col, orderBy("createdAt", "desc"));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
-  }
+    function showGeocodeBlocked(status){
+      alert(
+        `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
+        `Key → Allowed HTTP Origins must be EXACTLY one of:\n` +
+        `• oscarxvera.github.io\n` +
+        `OR\n` +
+        `• https://oscarxvera.github.io\n\n` +
+        `No paths, no duplicates.`
+      );
+    }
 
-  async function uploadPhoto(pin, file, user, description){
-    if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+    // ===== Firebase helpers =====
+    async function ensureFirebaseReady(){
+      const maxMs = 5000;
+      const start = Date.now();
+      while(!window.__fb){
+        if(Date.now() - start > maxMs) break;
+        await new Promise(r => setTimeout(r, 20));
+      }
+      return !!window.__fb;
+    }
+    function currentUser(){
+      return window.__fb?.auth?.currentUser || null;
+    }
 
-    const { storage, ref, uploadBytes, getDownloadURL, db, collection, addDoc, serverTimestamp } = window.__fb;
+    // Deterministic user color from uid (same person always same color)
+    function colorFromUid(uid){
+      if(!uid) return "#ffffff";
+      let hash = 0;
+      for (let i=0;i<uid.length;i++) { hash = ((hash<<5)-hash) + uid.charCodeAt(i); hash |= 0; }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue} 85% 62%)`;
+    }
 
-    const fileExt = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `pins/${pin.id}/${Date.now()}_${Math.random().toString(16).slice(2)}.${fileExt}`;
-    const sRef = ref(storage, path);
+    // ===== Auth modal =====
+    let authMode = "signin"; // "signin" | "create"
+    let authResolve = null;
 
-    await uploadBytes(sRef, file);
-    const url = await getDownloadURL(sRef);
+    function setAuthMode(mode){
+      authMode = mode;
+      $("tabSignIn").classList.toggle("active", mode === "signin");
+      $("tabCreate").classList.toggle("active", mode === "create");
+      $("btnEmailAction").textContent = mode === "signin" ? "Sign in" : "Create account";
+      $("authPass").setAttribute("autocomplete", mode === "signin" ? "current-password" : "new-password");
+      hideAuthError();
+    }
+    function showAuthError(msg){
+      const el = $("authErr");
+      el.textContent = msg || "Something went wrong.";
+      el.classList.add("show");
+    }
+    function hideAuthError(){
+      const el = $("authErr");
+      el.textContent = "";
+      el.classList.remove("show");
+    }
+    function openAuthModal(){
+      $("authModal").classList.add("open");
+      $("authModal").setAttribute("aria-hidden","false");
+      setAuthMode("signin");
+      $("authEmail").focus();
+      return new Promise((resolve)=>{ authResolve = resolve; });
+    }
+    function closeAuthModal(ok=false){
+      $("authModal").classList.remove("open");
+      $("authModal").setAttribute("aria-hidden","true");
+      hideAuthError();
+      if(authResolve){ authResolve(ok); authResolve = null; }
+    }
+    async function requireAuthOrPrompt(){
+      if(!await ensureFirebaseReady()){
+        alert("Firebase not configured. Paste your Firebase config in the module script block.");
+        return false;
+      }
+      if(currentUser()) return true;
+      const ok = await openAuthModal();
+      return !!ok && !!currentUser();
+    }
 
-    const photosCol = collection(db, "pins", pin.id, "photos");
-    await addDoc(photosCol, {
-      url,
-      storagePath: path,
-      uploadedByUid: user.uid,
-      uploadedByName: user.displayName || user.email || "Unknown",
-      description: (description || "").trim(),
-      createdAt: serverTimestamp()
-    });
+    // ===== Context menu =====
+    let ctxLngLat = null;
+    let ctxPinId = null;
 
-    return url;
-  }
+    function openCtxMenu(x, y, lngLat, pinId=null){
+      ctxLngLat = lngLat;
+      ctxPinId = pinId;
 
-  // ✅ CHANGED: delete with NO confirm, and allow deleting pins even if they have NO photos.
-  async function deletePin(pin){
-    if(!await ensureFirebaseReady()) return false;
-    const user = currentUser();
-    if(!user) return false;
-    if(pin.ownerUid !== user.uid) return false;
+      const menu = $("ctxMenu");
+      menu.style.left = `${Math.min(x, window.innerWidth - 240)}px`;
+      menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
+      menu.classList.add("open");
 
-    const { db, doc, deleteDoc, storage, ref, deleteObject, collection, getDocs } = window.__fb;
+      // Toggle delete option
+      const pin = pinId ? pins.get(pinId) : null;
+      const canDelete = !!pin && !!currentUser() && (pin.ownerUid === currentUser().uid);
+      $("ctxDeletePin").style.display = canDelete ? "flex" : "none";
+    }
+    function closeCtxMenu(){
+      $("ctxMenu").classList.remove("open");
+      ctxLngLat = null;
+      ctxPinId = null;
+    }
 
-    // Best-effort: delete any photos + storage objects if they exist
-    try{
-      const photosCol = collection(db, "pins", pin.id, "photos");
-      const snap = await getDocs(photosCol);
+    // ===== Map + pins =====
+    let map;
+    const pins = new Map(); // pinId -> pin object
+
+    function applyCALock(){
+      map.setMaxBounds(CA_BOUNDS);
+      map.setMinZoom(5);
+      map.setMaxZoom(20);
+    }
+
+    function closeDropdown(){
+      $("dropdown").classList.remove("open");
+      $("dropdown").innerHTML = "";
+    }
+
+    let lastSearchFeature = null; // { lng, lat, name, full, placeType }
+
+    function openSearchCard(feature){
+      lastSearchFeature = feature || null;
+      $("scTitle").textContent = feature?.name || "Result";
+      $("scSub").textContent = feature?.full || "";
+      $("searchCard").classList.add("open");
+
+      // show "Add pin here" if valid + in CA
+      const canAdd = !!feature && typeof feature.lng === "number" && typeof feature.lat === "number" && isInCA(feature.lng, feature.lat);
+      $("btnAddPinFromResult").style.display = canAdd ? "inline-flex" : "none";
+    }
+
+    function closeSearchCard(){
+      $("searchCard").classList.remove("open");
+      lastSearchFeature = null;
+      $("btnAddPinFromResult").style.display = "none";
+    }
+
+    function openEgg(){ $("egg").classList.add("open"); }
+    function closeEgg(){ $("egg").classList.remove("open"); }
+
+    function pinIdFromLngLat(lng, lat){
+      return `pin_${lng.toFixed(5)}_${lat.toFixed(5)}`
+        .replaceAll(".", "_")
+        .replaceAll("-", "m");
+    }
+
+    function makeMarkerEl(color){
+      const el = document.createElement("div");
+      el.className = "pin-marker";
+      el.style.width = "18px";
+      el.style.height = "18px";
+      el.style.borderRadius = "999px";
+      el.style.background = color || "#ffffff";
+      el.style.border = "2px solid rgba(255,255,255,.95)";
+      el.style.boxShadow = "0 10px 22px rgba(0,0,0,.35)";
+      el.style.cursor = "pointer";
+      return el;
+    }
+
+    // ========= Firestore pin + photos =========
+    async function ensurePinDoc(pin, isNew=false){
+      if(!await ensureFirebaseReady()) return;
+
+      const { db, doc, setDoc, getDoc, serverTimestamp } = window.__fb;
+      const refDoc = doc(db, "pins", pin.id);
+      const snap = await getDoc(refDoc);
+
+      const payload = {
+        id: pin.id,
+        title: pin.title || "Memory",
+        address: pin.address || "",
+        story: pin.story || "",
+        musicUrl: pin.musicUrl || "",
+        tag: pin.tag || "Memory",
+        lng: pin.lng,
+        lat: pin.lat,
+        ownerUid: pin.ownerUid || null,
+        ownerName: pin.ownerName || "",
+        ownerColor: pin.ownerColor || "#ffffff",
+        updatedAt: serverTimestamp()
+      };
+      if(isNew) payload.createdAt = serverTimestamp();
+
+      await setDoc(refDoc, payload, { merge:true });
+      return snap.exists();
+    }
+
+    async function updatePinFields(pinId, fields){
+      if(!await ensureFirebaseReady()) return false;
+      const user = currentUser();
+      if(!user) return false;
+
+      const pin = pins.get(pinId);
+      if(!pin) return false;
+      if(pin.ownerUid !== user.uid) return false;
+
+      const { db, doc, updateDoc, serverTimestamp } = window.__fb;
+      try{
+        await updateDoc(doc(db, "pins", pinId), { ...fields, updatedAt: serverTimestamp() });
+        // keep local in sync
+        Object.assign(pin, fields);
+        return true;
+      } catch(e){
+        console.error(e);
+        return false;
+      }
+    }
+
+    async function loadAllPins(){
+      if(!await ensureFirebaseReady()) return;
+      const { db, collection, getDocs } = window.__fb;
+      const col = collection(db, "pins");
+      const snap = await getDocs(col);
+
       for (const d of snap.docs){
-        const data = d.data() || {};
-        const path = data.storagePath;
-        try{ await deleteDoc(d.ref); } catch(e){ console.warn("delete photo doc failed", e); }
-        if(path){
-          try{ await deleteObject(ref(storage, path)); } catch(e){ console.warn("delete storage failed", e); }
+        const p = d.data();
+        if(!p || typeof p.lng !== "number" || typeof p.lat !== "number") continue;
+        if(!isInCA(p.lng, p.lat)) continue;
+
+        const id = p.id || d.id;
+        if(pins.has(id)) continue;
+
+        addPin(p.lng, p.lat, p.title || "Memory", p.address || "", {
+          id,
+          ownerUid: p.ownerUid || null,
+          ownerName: p.ownerName || "",
+          ownerColor: p.ownerColor || "#ffffff",
+          story: p.story || "",
+          musicUrl: p.musicUrl || "",
+          tag: p.tag || "Memory",
+          fromDb: true
+        });
+      }
+    }
+
+    async function loadPhotos(pinId){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs, query, orderBy } = window.__fb;
+      const col = collection(db, "pins", pinId, "photos");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
+    }
+
+    async function uploadPhoto(pin, file, user, description){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+
+      const { storage, ref, uploadBytes, getDownloadURL, db, collection, addDoc, serverTimestamp } = window.__fb;
+
+      const fileExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `pins/${pin.id}/${Date.now()}_${Math.random().toString(16).slice(2)}.${fileExt}`;
+      const sRef = ref(storage, path);
+
+      // ✅ IMPORTANT: metadata must include uploadedByUid to match your Storage delete rule
+      await uploadBytes(sRef, file, {
+        contentType: file.type || "image/jpeg",
+        customMetadata: { uploadedByUid: user.uid }
+      });
+
+      const url = await getDownloadURL(sRef);
+
+      const photosCol = collection(db, "pins", pin.id, "photos");
+      await addDoc(photosCol, {
+        url,
+        storagePath: path,
+        uploadedByUid: user.uid,
+        uploadedByName: user.displayName || user.email || "Unknown",
+        description: (description || "").trim(),
+        createdAt: serverTimestamp()
+      });
+
+      return url;
+    }
+
+    async function deletePinNow(pin){
+      if(!await ensureFirebaseReady()) return false;
+      const user = currentUser();
+      if(!user) return false;
+      if(pin.ownerUid !== user.uid) return false;
+
+      const { db, doc, deleteDoc, storage, ref, deleteObject, collection, getDocs } = window.__fb;
+
+      // Delete photo docs + storage objects (best effort)
+      try{
+        const photosCol = collection(db, "pins", pin.id, "photos");
+        const snap = await getDocs(photosCol);
+        for (const d of snap.docs){
+          const data = d.data() || {};
+          const path = data.storagePath;
+          try{ await deleteDoc(d.ref); } catch(e){ console.warn("delete photo doc failed", e); }
+          if(path){
+            try{ await deleteObject(ref(storage, path)); } catch(e){ console.warn("delete storage failed", e); }
+          }
+        }
+      } catch(e){
+        console.warn("photo cleanup failed", e);
+      }
+
+      // Delete pin doc
+      try{
+        await deleteDoc(doc(db, "pins", pin.id));
+      } catch(e){
+        console.error(e);
+        alert("Could not delete pin in Firestore. Check Firestore rules.");
+        return false;
+      }
+
+      // Remove from map
+      try{ pin.marker?.remove(); } catch {}
+      pins.delete(pin.id);
+      return true;
+    }
+
+    function makeStoryPopup(pin){
+      const wrap = document.createElement("div");
+      wrap.className = "pPop";
+
+      wrap.innerHTML = `
+        <div class="pTop">
+          <div style="min-width:0">
+            <div class="pTitle">${escapeHtml(pin.title || "Memory")}</div>
+            <div class="pMeta">${escapeHtml(pin.address || "")}</div>
+            <div class="pChipRow">
+              <span class="chip">${escapeHtml(pin.tag || "Memory")}</span>
+              <span class="chip" style="border-color: rgba(106,167,255,.35); background: rgba(106,167,255,.12);">📍 ${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}</span>
+            </div>
+          </div>
+          <button class="pillBtn ghost" data-x>✕</button>
+        </div>
+
+        <div class="pCard">
+          <div class="stage">
+            <div style="padding:14px;color:rgba(7,17,38,.55);font-weight:1000;" id="emptyMsg">No photos yet</div>
+            <img id="stageImg" style="display:none;" />
+            <div class="nav" id="nav" style="display:none;">
+              <button data-prev>‹</button>
+              <button data-next>›</button>
+            </div>
+          </div>
+
+          <div class="thumbs" id="thumbs" style="display:none;"></div>
+
+          <div class="footer">
+            <div class="row">
+              <div class="small" id="who"></div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="pillBtn primary" data-signin>Sign in</button>
+                <button class="pillBtn ghost" data-signout style="display:none;">Sign out</button>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="hint" id="storyView" style="white-space:pre-wrap;"></div>
+
+            <div class="audioWrap" id="audioWrap" style="display:none;">
+              <div class="hint" style="margin-bottom:6px;font-weight:1000;">🎵 Memory soundtrack</div>
+              <audio controls id="audioEl"></audio>
+            </div>
+
+            <div class="divider"></div>
+
+            <div id="editBlock" style="display:none;">
+              <div class="hint" style="font-weight:1000;margin-bottom:6px;">Edit this memory (owner only)</div>
+
+              <select id="tagSel" class="field" style="resize:none;">
+                <option value="First date">First date</option>
+                <option value="First fight">First fight</option>
+                <option value="Proposal">Proposal</option>
+                <option value="Future memory">Future memory</option>
+                <option value="Memory">Memory</option>
+              </select>
+
+              <input id="titleInp" class="field" placeholder="Title (ex: First date at …)" />
+
+              <textarea id="storyInp" class="field medH" placeholder="Short story… what happened here?"></textarea>
+
+              <input id="musicInp" class="field" placeholder="Music URL (mp3 link or direct audio file URL)" />
+
+              <div class="row">
+                <div class="small" style="max-width:none;">Photos are public to view. Upload requires sign-in.</div>
+                <button class="pillBtn primary" id="btnSavePin">Save</button>
+              </div>
+            </div>
+
+            <div id="uploadBlock" style="display:none;">
+              <div class="hint" style="font-weight:1000;">Add photos</div>
+              <textarea id="desc" class="field smallH" placeholder="Photo caption (optional)…"></textarea>
+              <div class="row">
+                <label class="pillBtn primary uploadLabel">
+                  Upload photo
+                  <input class="file" type="file" accept="image/*" />
+                </label>
+                <div class="small" id="photoDesc"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint" style="margin-top:10px;">
+          Tip: On phone, <b>double-tap</b> the map to open the add/delete menu.
+        </div>
+      `;
+
+      // close popup
+      wrap.querySelector("[data-x]").onclick = () => { try { pin.marker?.togglePopup(); } catch {} };
+
+      const signInBtn = wrap.querySelector("[data-signin]");
+      const signOutBtn = wrap.querySelector("[data-signout]");
+
+      const fileInput = wrap.querySelector("input[type=file]");
+      const descBox = wrap.querySelector("#desc");
+
+      const stageImg = wrap.querySelector("#stageImg");
+      const emptyMsg = wrap.querySelector("#emptyMsg");
+      const nav = wrap.querySelector("#nav");
+      const thumbs = wrap.querySelector("#thumbs");
+      const who = wrap.querySelector("#who");
+      const photoDesc = wrap.querySelector("#photoDesc");
+
+      const storyView = wrap.querySelector("#storyView");
+      const audioWrap = wrap.querySelector("#audioWrap");
+      const audioEl = wrap.querySelector("#audioEl");
+
+      const editBlock = wrap.querySelector("#editBlock");
+      const uploadBlock = wrap.querySelector("#uploadBlock");
+
+      const tagSel = wrap.querySelector("#tagSel");
+      const titleInp = wrap.querySelector("#titleInp");
+      const storyInp = wrap.querySelector("#storyInp");
+      const musicInp = wrap.querySelector("#musicInp");
+      const btnSavePin = wrap.querySelector("#btnSavePin");
+
+      let photos = [];
+      let idx = 0;
+
+      function renderStory(){
+        const story = (pin.story || "").trim();
+        storyView.textContent = story ? story : "No story yet. (Owner can add one.)";
+
+        const m = (pin.musicUrl || "").trim();
+        if(m){
+          audioWrap.style.display = "block";
+          audioEl.src = m;
+        } else {
+          audioWrap.style.display = "none";
+          audioEl.removeAttribute("src");
         }
       }
-    } catch(e){
-      console.warn("photo cleanup failed", e);
-    }
 
-    // Delete pin doc
-    try{
-      await deleteDoc(doc(db, "pins", pin.id));
-    } catch(e){
-      console.error(e);
-      alert("Could not delete pin in Firestore. Check rules.");
-      return false;
-    }
+      function renderPhotos(){
+        if(!photos.length){
+          emptyMsg.style.display = "block";
+          stageImg.style.display = "none";
+          nav.style.display = "none";
+          thumbs.style.display = "none";
+          who.textContent = "";
+          photoDesc.textContent = "";
+          return;
+        }
 
-    // Remove from map
-    try{ pin.marker?.remove(); } catch {}
-    pins.delete(pin.id);
-    return true;
-  }
+        emptyMsg.style.display = "none";
+        stageImg.style.display = "block";
+        nav.style.display = photos.length > 1 ? "flex" : "none";
+        thumbs.style.display = "flex";
 
-  function makeGalleryPopup(pin){
-    const wrap = document.createElement("div");
-    wrap.className = "gPop";
+        const p = photos[idx];
+        stageImg.src = p.url;
+        who.textContent = `Uploaded by ${p.uploadedByName || "Unknown"}`;
+        photoDesc.textContent = (p.description || "").trim() ? `"${p.description.trim()}"` : "";
 
-    wrap.innerHTML = `
-      <div class="gTop">
-        <div style="min-width:0">
-          <div class="gTitle">${escapeHtml(pin.title || "Pin")}</div>
-          <div class="gMeta">${escapeHtml(pin.address || "")}</div>
-        </div>
-        <button class="gBtn ghost gX" data-x>✕</button>
-      </div>
-
-      <div class="gAuthRow">
-        <button class="gBtn primary" data-signin>Sign in</button>
-        <button class="gBtn ghost" data-signout style="display:none;">Sign out</button>
-      </div>
-
-      <div class="gCard">
-        <div class="gStage">
-          <div style="padding:14px;color:rgba(7,17,38,.55);font-weight:900;" id="emptyMsg">No photos yet</div>
-          <img id="stageImg" style="display:none;" />
-          <div class="gNav" id="nav" style="display:none;">
-            <button data-prev>‹</button>
-            <button data-next>›</button>
-          </div>
-        </div>
-
-        <div class="gThumbs" id="thumbs" style="display:none;"></div>
-
-        <div class="gFooter">
-          <div class="gRow">
-            <div class="gSmall" id="who"></div>
-            <label class="gBtn primary gUploadLabel" id="uploadWrap" style="display:none;">
-              Upload
-              <input class="gFile" type="file" accept="image/*" />
-            </label>
-          </div>
-
-          <textarea id="desc" class="gText" placeholder="Add a description (optional) for your photo…" style="display:none;"></textarea>
-          <div class="gSmall" id="photoDesc" style="white-space:normal;max-width:none;"></div>
-        </div>
-      </div>
-
-      <div class="gHint">
-        Long-press / right-click on the map to add a pin. Long-press / right-click on <b>your</b> pin to delete it.
-      </div>
-    `;
-
-    wrap.querySelector("[data-x]").onclick = () => { try { pin.marker?.togglePopup(); } catch {} };
-
-    const signInBtn = wrap.querySelector("[data-signin]");
-    const signOutBtn = wrap.querySelector("[data-signout]");
-    const uploadWrap = wrap.querySelector("#uploadWrap");
-    const fileInput = wrap.querySelector("input[type=file]");
-    const descBox = wrap.querySelector("#desc");
-
-    let photos = [];
-    let idx = 0;
-
-    const stageImg = wrap.querySelector("#stageImg");
-    const emptyMsg = wrap.querySelector("#emptyMsg");
-    const nav = wrap.querySelector("#nav");
-    const thumbs = wrap.querySelector("#thumbs");
-    const who = wrap.querySelector("#who");
-    const photoDesc = wrap.querySelector("#photoDesc");
-
-    function render(){
-      if(!photos.length){
-        emptyMsg.style.display = "block";
-        stageImg.style.display = "none";
-        nav.style.display = "none";
-        thumbs.style.display = "none";
-        who.textContent = "";
-        photoDesc.textContent = "";
-        return;
+        thumbs.innerHTML = "";
+        photos.forEach((ph, i) => {
+          const im = document.createElement("img");
+          im.src = ph.url;
+          if(i === idx) im.classList.add("active");
+          im.onclick = () => { idx = i; renderPhotos(); };
+          thumbs.appendChild(im);
+        });
       }
 
-      emptyMsg.style.display = "none";
-      stageImg.style.display = "block";
-      nav.style.display = photos.length > 1 ? "flex" : "none";
-      thumbs.style.display = "flex";
-
-      const p = photos[idx];
-      stageImg.src = p.url;
-      who.textContent = `Uploaded by ${p.uploadedByName || "Unknown"}`;
-      photoDesc.textContent = (p.description || "").trim() ? `"${p.description.trim()}"` : "";
-
-      thumbs.innerHTML = "";
-      photos.forEach((ph, i) => {
-        const im = document.createElement("img");
-        im.src = ph.url;
-        if(i === idx) im.classList.add("active");
-        im.onclick = () => { idx = i; render(); };
-        thumbs.appendChild(im);
-      });
-    }
-
-    wrap.querySelector("[data-prev]").onclick = () => {
-      if(!photos.length) return;
-      idx = (idx - 1 + photos.length) % photos.length;
-      render();
-    };
-    wrap.querySelector("[data-next]").onclick = () => {
-      if(!photos.length) return;
-      idx = (idx + 1) % photos.length;
-      render();
-    };
-
-    (async () => {
-      try{
-        await ensurePinDoc(pin, false);
-        photos = await loadPhotos(pin.id);
-        idx = 0;
-        render();
-      } catch(e){ console.error(e); }
-    })();
-
-    (async () => {
-      const ok = await ensureFirebaseReady();
-      if(!ok){
-        signInBtn.textContent = "Firebase not configured";
-        signInBtn.onclick = () => alert("Paste your Firebase config in the <script type='module'> block.");
-        return;
-      }
-
-      const { auth, provider, signInWithPopup, signOut, onAuthStateChanged } = window.__fb;
-
-      signInBtn.onclick = async () => {
-        const loggedIn = await requireAuthOrPrompt();
-        if(!loggedIn) return;
+      wrap.querySelector("[data-prev]").onclick = () => {
+        if(!photos.length) return;
+        idx = (idx - 1 + photos.length) % photos.length;
+        renderPhotos();
       };
-      signOutBtn.onclick = async () => { try { await signOut(auth); } catch(e){ console.error(e); } };
+      wrap.querySelector("[data-next]").onclick = () => {
+        if(!photos.length) return;
+        idx = (idx + 1) % photos.length;
+        renderPhotos();
+      };
 
-      onAuthStateChanged(auth, (user) => {
-        const authed = !!user;
-        signInBtn.style.display = authed ? "none" : "inline-flex";
-        signOutBtn.style.display = authed ? "inline-flex" : "none";
-        uploadWrap.style.display = authed ? "inline-flex" : "none";
-        descBox.style.display = authed ? "block" : "none";
-      });
-
-      fileInput.onchange = async (e) => {
-        const user = auth.currentUser;
-        const file = e.target.files?.[0];
-        if(!user) return alert("Sign in first.");
-        if(!file) return;
-
+      // initial load
+      (async () => {
         try{
-          const desc = (descBox.value || "").trim();
-          await uploadPhoto(pin, file, user, desc);
-
+          await ensurePinDoc(pin, false);
           photos = await loadPhotos(pin.id);
           idx = 0;
-          render();
+          renderPhotos();
+          renderStory();
+        } catch(e){ console.error(e); }
+      })();
 
-          fileInput.value = "";
-          descBox.value = "";
-        } catch(err){
-          console.error(err);
-          alert("Upload failed. Check Firebase Storage rules + bucket.");
+      // auth wiring
+      (async () => {
+        const ok = await ensureFirebaseReady();
+        if(!ok){
+          signInBtn.textContent = "Firebase not configured";
+          signInBtn.onclick = () => alert("Paste your Firebase config in the <script type='module'> block.");
+          return;
         }
+
+        const { auth, provider, signInWithPopup, signOut, onAuthStateChanged } = window.__fb;
+
+        signInBtn.onclick = async () => {
+          const loggedIn = await requireAuthOrPrompt();
+          if(!loggedIn) return;
+        };
+        signOutBtn.onclick = async () => { try { await signOut(auth); } catch(e){ console.error(e); } };
+
+        onAuthStateChanged(auth, (user) => {
+          const authed = !!user;
+          signInBtn.style.display = authed ? "none" : "inline-flex";
+          signOutBtn.style.display = authed ? "inline-flex" : "none";
+
+          // owner can edit pin fields + upload
+          const owner = authed && (pin.ownerUid === user.uid);
+
+          editBlock.style.display = owner ? "block" : "none";
+          uploadBlock.style.display = authed ? "block" : "none";
+
+          // fill inputs if owner
+          if(owner){
+            tagSel.value = pin.tag || "Memory";
+            titleInp.value = pin.title || "";
+            storyInp.value = pin.story || "";
+            musicInp.value = pin.musicUrl || "";
+          }
+        });
+
+        btnSavePin.onclick = async () => {
+          const user = auth.currentUser;
+          if(!user) return alert("Sign in first.");
+          if(pin.ownerUid !== user.uid) return;
+
+          const next = {
+            tag: (tagSel.value || "Memory").trim(),
+            title: (titleInp.value || "Memory").trim(),
+            story: (storyInp.value || "").trim(),
+            musicUrl: (musicInp.value || "").trim()
+          };
+
+          const okSave = await updatePinFields(pin.id, next);
+          if(!okSave) return alert("Could not save. Check Firestore rules.");
+          renderStory();
+        };
+
+        fileInput.onchange = async (e) => {
+          const user = auth.currentUser;
+          const file = e.target.files?.[0];
+          if(!user) return alert("Sign in first.");
+          if(!file) return;
+
+          try{
+            const desc = (descBox.value || "").trim();
+            await uploadPhoto(pin, file, user, desc);
+
+            // refresh gallery
+            photos = await loadPhotos(pin.id);
+            idx = 0;
+            renderPhotos();
+
+            // reset inputs
+            fileInput.value = "";
+            descBox.value = "";
+          } catch(err){
+            console.error(err);
+            alert("Upload failed. Check Firebase Storage rules + bucket.");
+          }
+        };
+      })();
+
+      return wrap;
+    }
+
+    function addPin(lng, lat, title="Memory", address="", opts={}){
+      const id = opts.id || pinIdFromLngLat(lng, lat);
+      if(pins.has(id)) return pins.get(id);
+
+      const ownerUid = opts.ownerUid ?? currentUser()?.uid ?? null;
+      const ownerName = opts.ownerName ?? (currentUser()?.displayName || currentUser()?.email || "") ?? "";
+      const ownerColor = opts.ownerColor ?? colorFromUid(ownerUid);
+
+      const pin = {
+        id, lng, lat,
+        title,
+        address,
+        story: opts.story ?? "",
+        musicUrl: opts.musicUrl ?? "",
+        tag: opts.tag ?? "Memory",
+        ownerUid, ownerName, ownerColor,
+        marker: null
       };
-    })();
 
-    return wrap;
-  }
+      const markerEl = makeMarkerEl(ownerColor);
+      markerEl.dataset.pinId = pin.id;
 
-  function addPin(lng, lat, title="Dropped Pin", address="", opts={}){
-    const id = opts.id || pinIdFromLngLat(lng, lat);
-    if(pins.has(id)) return pins.get(id);
+      const marker = new maplibregl.Marker({ element: markerEl })
+        .setLngLat([lng, lat])
+        .addTo(map);
 
-    const ownerUid = opts.ownerUid ?? currentUser()?.uid ?? null;
-    const ownerName = opts.ownerName ?? (currentUser()?.displayName || currentUser()?.email || "") ?? "";
-    const ownerColor = opts.ownerColor ?? colorFromUid(ownerUid);
+      const popup = new maplibregl.Popup({ offset: 25 });
+      marker.setPopup(popup);
+      pin.marker = marker;
 
-    const pin = { id, lng, lat, title, address, ownerUid, ownerName, ownerColor, marker: null };
+      popup.setDOMContent(makeStoryPopup(pin));
 
-    const markerEl = makeMarkerEl(ownerColor);
-    const marker = new maplibregl.Marker({ element: markerEl })
-      .setLngLat([lng, lat])
-      .addTo(map);
-
-    const popup = new maplibregl.Popup({ offset: 25 });
-    marker.setPopup(popup);
-    pin.marker = marker;
-
-    popup.setDOMContent(makeGalleryPopup(pin));
-
-    // Click -> zoom
-    markerEl.addEventListener("click", () => {
-      map.flyTo({ center:[lng, lat], zoom: 17, speed: 1.2, curve: 1.42 });
-    });
-
-    // ✅ CHANGED: remove dblclick delete completely.
-    // ✅ NEW: right-click on a pin opens menu with Delete (desktop)
-    markerEl.addEventListener("contextmenu", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      openCtxMenu(ev.clientX, ev.clientY, { lng, lat }, pin.id);
-    });
-
-    // ✅ NEW: long-press on a pin opens menu with Delete (mobile)
-    // Use pointer events so it works for touch + mouse.
-    let pressTimer = null;
-    markerEl.addEventListener("pointerdown", (ev) => {
-      // only for primary touch/mouse
-      pressTimer = setTimeout(() => {
-        openCtxMenu(ev.clientX ?? 12, ev.clientY ?? 120, { lng, lat }, pin.id);
-      }, 550);
-    });
-    markerEl.addEventListener("pointerup", () => { if(pressTimer) clearTimeout(pressTimer); pressTimer = null; });
-    markerEl.addEventListener("pointercancel", () => { if(pressTimer) clearTimeout(pressTimer); pressTimer = null; });
-    markerEl.addEventListener("pointerleave", () => { if(pressTimer) clearTimeout(pressTimer); pressTimer = null; });
-
-    pins.set(pin.id, pin);
-
-    if(!opts.fromDb){
-      ensurePinDoc(pin, true).catch(()=>{});
-    } else {
-      ensurePinDoc(pin, false).catch(()=>{});
-    }
-
-    return pin;
-  }
-
-  function restorePinsAfterStyle(){
-    for (const [,pin] of pins){
-      try{ pin.marker?.addTo(map); } catch {}
-    }
-  }
-
-  function initMap(){
-    map = new maplibregl.Map({
-      container: "map",
-      style: STYLES.streets,
-      bounds: CA_BOUNDS,
-      fitBoundsOptions: { padding: 40, maxZoom: 12 },
-      pitch: 45,
-      bearing: -15,
-      antialias: true
-    });
-
-    map.on("load", async () => {
-      applyCALock();
-      await loadAllPins().catch(console.error);
-
-      // Desktop right-click menu
-      map.on("contextmenu", (e) => {
-        const { lng, lat } = e.lngLat;
-        if(!isInCA(lng, lat)) return;
-        openCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, e.lngLat, null);
+      // Click -> open popup and zoom a bit
+      markerEl.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        try{ marker.togglePopup(); } catch {}
+        map.flyTo({ center:[lng, lat], zoom: Math.max(map.getZoom(), 15.8), speed: 1.2, curve: 1.42 });
       });
 
-      // Close menu on normal click
-      map.on("click", () => closeCtxMenu());
+      // Right-click or long-press on a pin -> context menu with delete
+      markerEl.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openCtxMenu(ev.clientX, ev.clientY, { lng, lat }, pin.id);
+      });
 
-      // ✅ NEW: long-press on the map opens Add menu on phones
-      let mapPressTimer = null;
-      map.getCanvas().addEventListener("pointerdown", (ev) => {
-        // start long press
-        mapPressTimer = setTimeout(() => {
-          const rect = map.getCanvas().getBoundingClientRect();
-          const point = [ev.clientX - rect.left, ev.clientY - rect.top];
-          const lngLat = map.unproject(point);
-          if(!lngLat) return;
-          if(!isInCA(lngLat.lng, lngLat.lat)) return;
-          openCtxMenu(ev.clientX, ev.clientY, lngLat, null);
-        }, 550);
-      }, { passive: true });
+      // Long-press for touch devices (opens menu on pin)
+      let pressTimer = null;
+      markerEl.addEventListener("touchstart", (ev) => {
+        if(pressTimer) clearTimeout(pressTimer);
+        const t = ev.touches?.[0];
+        if(!t) return;
+        pressTimer = setTimeout(() => {
+          openCtxMenu(t.clientX, t.clientY, { lng, lat }, pin.id);
+        }, 450);
+      }, { passive:true });
+      markerEl.addEventListener("touchend", () => { if(pressTimer) clearTimeout(pressTimer); });
 
-      map.getCanvas().addEventListener("pointerup", () => { if(mapPressTimer) clearTimeout(mapPressTimer); mapPressTimer=null; }, { passive: true });
-      map.getCanvas().addEventListener("pointercancel", () => { if(mapPressTimer) clearTimeout(mapPressTimer); mapPressTimer=null; }, { passive: true });
-      map.getCanvas().addEventListener("pointerleave", () => { if(mapPressTimer) clearTimeout(mapPressTimer); mapPressTimer=null; }, { passive: true });
-    });
+      pins.set(pin.id, pin);
 
-    map.on("style.load", () => {
-      applyCALock();
-      restorePinsAfterStyle();
-    });
-  }
+      // Create/update doc
+      if(!opts.fromDb){
+        ensurePinDoc(pin, true).catch(()=>{});
+      } else {
+        ensurePinDoc(pin, false).catch(()=>{});
+      }
 
-  async function maptilerSearch(queryText){
-    const qText = (queryText || "").trim();
-    if (qText.length < 2) { closeDropdown(); return; }
+      return pin;
+    }
 
-    const dd = $("dropdown");
-    dd.innerHTML = "";
-    dd.classList.add("open");
+    function restorePinsAfterStyle(){
+      for (const [,pin] of pins){
+        try{ pin.marker?.addTo(map); } catch {}
+      }
+    }
 
-    const head = document.createElement("div");
-    head.className = "dd-head";
-    head.innerHTML = `
-      <div class="muted">Searching…</div>
-      <button class="btn ghost" id="ddCloseBtn" style="padding:7px 10px;">Close</button>
-    `;
-    dd.appendChild(head);
-    setTimeout(() => {
-      const b = $("ddCloseBtn");
-      if (b) b.onclick = () => closeDropdown();
-    }, 0);
+    function initMap(){
+      map = new maplibregl.Map({
+        container: "map",
+        style: STYLES.streets,
+        bounds: CA_BOUNDS,
+        fitBoundsOptions: { padding: 40, maxZoom: 12 },
+        pitch: 45,
+        bearing: -15,
+        antialias: true
+      });
 
-    const caCenterLng = -119.4179;
-    const caCenterLat = 36.7783;
+      map.on("load", async () => {
+        applyCALock();
+        await loadAllPins().catch(console.error);
 
-    const url =
-      `https://api.maptiler.com/geocoding/${encodeURIComponent(qText)}.json` +
-      `?key=${MAPTILER_KEY}` +
-      `&limit=10` +
-      `&country=us` +
-      `&autocomplete=true` +
-      `&language=en` +
-      `&proximity=${caCenterLng},${caCenterLat}`;
+        // Desktop: right-click map -> menu (Add pin)
+        map.on("contextmenu", (e) => {
+          const { lng, lat } = e.lngLat;
+          if(!isInCA(lng, lat)) return;
+          openCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, e.lngLat, null);
+        });
 
-    let res, data;
-    try{
-      res = await fetch(url, { headers: { "Accept": "application/json" }});
+        // Desktop: double click anywhere -> menu (requested)
+        map.on("dblclick", (e) => {
+          e.preventDefault();
+          const { lng, lat } = e.lngLat;
+          if(!isInCA(lng, lat)) return;
 
-      if (!res.ok){
-        const text = await res.text().catch(()=> "");
-        console.error("Geocoding failed:", res.status, text);
+          // if dblclick originated on a marker element, use that pin id
+          const target = e.originalEvent?.target;
+          const pinId = target?.dataset?.pinId || null;
+          openCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, e.lngLat, pinId);
+        });
 
-        head.querySelector(".muted").textContent = "Blocked";
+        // Close menu on normal click
+        map.on("click", () => closeCtxMenu());
+      });
+
+      map.on("style.load", () => {
+        applyCALock();
+        restorePinsAfterStyle();
+      });
+
+      // Mobile: double-tap detection to open menu
+      setupDoubleTapMenu();
+    }
+
+    function setupDoubleTapMenu(){
+      const el = map.getContainer();
+      let lastTap = 0;
+      let lastX = 0, lastY = 0;
+
+      el.addEventListener("touchend", (ev) => {
+        const now = Date.now();
+        const t = ev.changedTouches?.[0];
+        if(!t) return;
+
+        const x = t.clientX, y = t.clientY;
+        const dt = now - lastTap;
+        const dx = Math.abs(x - lastX);
+        const dy = Math.abs(y - lastY);
+
+        const isDoubleTap = (dt < 320 && dx < 28 && dy < 28);
+        lastTap = now; lastX = x; lastY = y;
+
+        if(!isDoubleTap) return;
+
+        // Determine lngLat from screen point
+        const rect = el.getBoundingClientRect();
+        const point = { x: x - rect.left, y: y - rect.top };
+        const lngLat = map.unproject([point.x, point.y]);
+
+        if(!isInCA(lngLat.lng, lngLat.lat)) return;
+
+        // If double-tapped on a marker element, include delete option
+        const target = ev.target;
+        const pinId = target?.dataset?.pinId || null;
+
+        openCtxMenu(x, y, lngLat, pinId);
+      }, { passive:true });
+    }
+
+    async function maptilerSearch(queryText){
+      const q = (queryText || "").trim();
+      if (q.length < 2) { closeDropdown(); return; }
+
+      const dd = $("dropdown");
+      dd.innerHTML = "";
+      dd.classList.add("open");
+
+      const head = document.createElement("div");
+      head.className = "dd-head";
+      head.innerHTML = `
+        <div class="muted">Searching…</div>
+        <button class="btn ghost" id="ddCloseBtn" style="padding:7px 10px;">Close</button>
+      `;
+      dd.appendChild(head);
+      setTimeout(() => { const b = $("ddCloseBtn"); if (b) b.onclick = () => closeDropdown(); }, 0);
+
+      const caCenterLng = -119.4179;
+      const caCenterLat = 36.7783;
+
+      const url =
+        `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json` +
+        `?key=${MAPTILER_KEY}` +
+        `&limit=10` +
+        `&country=us` +
+        `&autocomplete=true` +
+        `&language=en` +
+        `&proximity=${caCenterLng},${caCenterLat}`;
+
+      let res, data;
+      try{
+        res = await fetch(url, { headers: { "Accept": "application/json" }});
+        if (!res.ok){
+          const text = await res.text().catch(()=> "");
+          console.error("Geocoding failed:", res.status, text);
+
+          head.querySelector(".muted").textContent = "Blocked";
+
+          const row = document.createElement("div");
+          row.className = "dd-item";
+          row.innerHTML = `
+            <div style="width:100%">
+              <div class="dd-title">Search is blocked</div>
+              <div class="dd-sub">Status: ${res.status}. Open DevTools → Console to see the exact MapTiler error.</div>
+            </div>
+          `;
+          dd.appendChild(row);
+
+          if (res.status === 401 || res.status === 403) showGeocodeBlocked(res.status);
+          return;
+        }
+        data = await res.json();
+      } catch (e){
+        head.querySelector(".muted").textContent = "Error";
+        console.error("Geocoding network error:", e);
 
         const row = document.createElement("div");
         row.className = "dd-item";
         row.innerHTML = `
           <div style="width:100%">
-            <div class="dd-title">Search is blocked</div>
-            <div class="dd-sub">Status: ${res.status}. Open DevTools → Console to see the exact MapTiler error.</div>
+            <div class="dd-title">Network error</div>
+            <div class="dd-sub">Couldn’t reach MapTiler. Check internet + key restrictions.</div>
           </div>
         `;
         dd.appendChild(row);
-
-        if (res.status === 401 || res.status === 403) showGeocodeBlocked(res.status);
         return;
       }
 
-      data = await res.json();
-    } catch (e){
-      head.querySelector(".muted").textContent = "Error";
-      console.error("Geocoding network error:", e);
+      const feats = Array.isArray(data?.features) ? data.features : [];
+      head.querySelector(".muted").textContent = "Results";
 
-      const row = document.createElement("div");
-      row.className = "dd-item";
-      row.innerHTML = `
-        <div style="width:100%">
-          <div class="dd-title">Network error</div>
-          <div class="dd-sub">Couldn’t reach MapTiler. Check internet + key restrictions.</div>
-        </div>
-      `;
-      dd.appendChild(row);
-      return;
-    }
-
-    const feats = Array.isArray(data?.features) ? data.features : [];
-    head.querySelector(".muted").textContent = "Results";
-
-    if (!feats.length){
-      const none = document.createElement("div");
-      none.className = "dd-item";
-      none.innerHTML = `
-        <div style="width:100%">
-          <div class="dd-title">No matches</div>
-          <div class="dd-sub">Try including city + ZIP (example: “123 Main St, Fresno CA 93722”).</div>
-        </div>
-      `;
-      dd.appendChild(none);
-      return;
-    }
-
-    for (const f of feats){
-      const coords = f.center || f.geometry?.coordinates;
-      if (!coords || typeof coords[0] !== "number" || typeof coords[1] !== "number") continue;
-
-      const lng = coords[0];
-      const lat = coords[1];
-
-      const placeName =
-        f.place_name ||
-        f.text ||
-        f.properties?.name ||
-        "Result";
-
-      const nameTop = (f.text || placeName).split(",")[0] || placeName;
-      const placeType = (f.place_type && f.place_type[0]) ? f.place_type[0] : "";
-      const inCA = isInCA(lng, lat);
-
-      const row = document.createElement("div");
-      row.className = "dd-item";
-      row.innerHTML = `
-        <div class="dd-ico">📍</div>
-        <div style="min-width:0; width:100%;">
-          <div class="dd-title">
-            ${escapeHtml(nameTop)}
-            ${inCA ? "" : `<span style="color:var(--danger); font-weight:900; margin-left:8px; font-size:12px;">Outside CA</span>`}
+      if (!feats.length){
+        const none = document.createElement("div");
+        none.className = "dd-item";
+        none.innerHTML = `
+          <div style="width:100%">
+            <div class="dd-title">No matches</div>
+            <div class="dd-sub">Try including city + ZIP (example: “123 Main St, Fresno CA 93722”).</div>
           </div>
-          <div class="dd-sub">${escapeHtml(placeName)}</div>
-        </div>
-      `;
-
-      row.onclick = async () => {
-        closeDropdown();
-
-        $("search").value = placeName;
-        $("clearSearch").classList.add("show");
-
-        if (!inCA){
-          alert("That result is outside California. This map is locked to CA.");
-          openSearchCard({ name: nameTop, full: placeName });
-          return;
-        }
-
-        const zoom = (placeType === "address") ? 18.2 : 15.6;
-        map.flyTo({ center:[lng, lat], zoom, speed: 1.2, curve: 1.42 });
-
-        const wantPin = await requireAuthOrPrompt();
-        if(wantPin){
-          const pinTitle = (placeType === "address") ? nameTop : placeName;
-          addPin(lng, lat, pinTitle, placeName);
-        }
-
-        openSearchCard({ name: nameTop, full: placeName, lng, lat });
-      };
-
-      dd.appendChild(row);
-    }
-  }
-
-  function performSearch(){
-    const q = ($("search").value || "").trim();
-
-    if (q === "IDEN"){
-      closeDropdown();
-      closeSearchCard();
-      openEgg();
-      return;
-    }
-
-    maptilerSearch(q);
-  }
-
-  function locateMe(){
-    if (!navigator.geolocation){
-      alert("Geolocation not available in this browser.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        if (!isInCA(longitude, latitude)){
-          alert("Your location appears outside California. The map is locked to CA.");
-          return;
-        }
-        map.flyTo({ center:[longitude, latitude], zoom: 14.5, speed: 1.2, curve: 1.42 });
-      },
-      () => alert("Couldn’t get your location. Check browser permissions."),
-      { enableHighAccuracy:true, timeout: 10000 }
-    );
-  }
-
-  function setToolbarCollapsed(collapsed){
-    const topbar = $("topbar");
-    topbar.classList.toggle("collapsed", collapsed);
-    $("toggleIcon").textContent = collapsed ? "⌄" : "⌃";
-    $("toggleText").textContent = collapsed ? "Show" : "Hide";
-    $("togglePill").style.top = collapsed ? "14px" : "92px";
-    if (collapsed) closeDropdown();
-  }
-
-  function wireUI(){
-    // Style switch
-    $("styleSel").addEventListener("change", () => {
-      const v = $("styleSel").value;
-      map.setStyle(STYLES[v] || STYLES.streets);
-    });
-
-    $("btnLocate").onclick = () => locateMe();
-
-    $("btnHelp").onclick = () => {
-      alert(
-        "How to use:\n\n" +
-        "• Type an address → Search (or Enter)\n" +
-        "• Click a suggestion to zoom\n" +
-        "• Right-click / long-press map → Add pin here (sign-in required)\n" +
-        "• Right-click / long-press YOUR pin → Delete pin (no confirm)\n" +
-        "• Click a pin to zoom\n" +
-        "• Open pin popup to upload photos + optional description\n" +
-        "• Use style menu for Dark/Satellite/Hybrid\n\n" +
-        "Secret: type IDEN (all caps) then Search\n\n" +
-        "Geocoding blocked? Fix MapTiler Allowed HTTP Origins (GitHub Pages)."
-      );
-    };
-
-    // Search typing
-    $("search").addEventListener("input", debounce((e) => {
-      const v = e.target.value;
-      $("clearSearch").classList.toggle("show", !!v);
-      if (v.trim() === "IDEN") { closeDropdown(); return; }
-      maptilerSearch(v);
-    }, 250));
-
-    $("search").addEventListener("keydown", (e) => {
-      if (e.key === "Enter"){
-        e.preventDefault();
-        performSearch();
+        `;
+        dd.appendChild(none);
+        return;
       }
-    });
 
-    $("btnSearch").onclick = () => performSearch();
+      for (const f of feats){
+        const coords = f.center || f.geometry?.coordinates;
+        if (!coords || typeof coords[0] !== "number" || typeof coords[1] !== "number") continue;
 
-    $("clearSearch").onclick = () => {
-      $("search").value = "";
-      $("clearSearch").classList.remove("show");
-      closeDropdown();
-      closeSearchCard();
-    };
+        const lng = coords[0];
+        const lat = coords[1];
 
-    document.addEventListener("click", (ev) => {
-      // Close dropdown if clicked outside searchWrap
-      const dd = $("dropdown");
-      const searchWrap = document.querySelector(".searchWrap");
-      if (dd.classList.contains("open") && searchWrap && !searchWrap.contains(ev.target)) closeDropdown();
+        const placeName =
+          f.place_name ||
+          f.text ||
+          f.properties?.name ||
+          "Result";
 
-      // Close context menu if clicked outside it
-      const ctx = $("ctxMenu");
-      if (ctx.classList.contains("open") && !ctx.contains(ev.target)) closeCtxMenu();
-    });
+        const nameTop = (f.text || placeName).split(",")[0] || placeName;
+        const placeType = (f.place_type && f.place_type[0]) ? f.place_type[0] : "";
+        const inCA = isInCA(lng, lat);
 
-    $("btnClearResult").onclick = () => closeSearchCard();
+        const row = document.createElement("div");
+        row.className = "dd-item";
 
-    // Easter egg close
-    $("btnEggClose").onclick = () => closeEgg();
-    $("egg").addEventListener("click", (e) => { if (e.target && e.target.id === "egg") closeEgg(); });
+        row.innerHTML = `
+          <div class="dd-ico">📍</div>
+          <div style="min-width:0; width:100%;">
+            <div class="dd-title">
+              ${escapeHtml(nameTop)}
+              ${inCA ? "" : `<span style="color:var(--danger); font-weight:1000; margin-left:8px; font-size:12px;">Outside CA</span>`}
+            </div>
+            <div class="dd-sub">${escapeHtml(placeName)}</div>
+          </div>
+          <div class="dd-actions">
+            ${inCA ? `<button class="dd-pill accent" data-add>Add pin</button>` : ""}
+          </div>
+        `;
 
-    // Toolbar toggle
-    let collapsed = false;
-    $("togglePill").onclick = () => {
-      collapsed = !collapsed;
-      setToolbarCollapsed(collapsed);
-    };
-    setToolbarCollapsed(false);
+        // click row = zoom and show card
+        row.onclick = async () => {
+          closeDropdown();
 
-    // Escape closes everything
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+          $("search").value = placeName;
+          $("clearSearch").classList.add("show");
+
+          if (!inCA){
+            alert("That result is outside California. This map is locked to CA.");
+            openSearchCard({ name: nameTop, full: placeName });
+            return;
+          }
+
+          const zoom = (placeType === "address") ? 18.2 : 15.8;
+          map.flyTo({ center:[lng, lat], zoom, speed: 1.2, curve: 1.42 });
+
+          openSearchCard({ name: nameTop, full: placeName, lng, lat, placeType });
+        };
+
+        // Add pin button inside row (doesn't trigger row onclick)
+        const addBtn = row.querySelector("[data-add]");
+        if(addBtn){
+          addBtn.onclick = async (ev) => {
+            ev.stopPropagation();
+            closeDropdown();
+            $("search").value = placeName;
+            $("clearSearch").classList.add("show");
+
+            if (!inCA) return;
+
+            map.flyTo({ center:[lng, lat], zoom: 18, speed: 1.2, curve: 1.42 });
+
+            const ok = await requireAuthOrPrompt();
+            if(!ok) return;
+
+            const user = currentUser();
+            const pinTitle = (placeType === "address") ? nameTop : placeName;
+            const pin = addPin(lng, lat, pinTitle, placeName, {
+              ownerUid: user.uid,
+              ownerName: user.displayName || user.email || "",
+              tag: "Memory"
+            });
+
+            openSearchCard({ name: pin.title, full: "Pinned location", lng, lat, placeType: "pinned" });
+          };
+        }
+
+        dd.appendChild(row);
+      }
+    }
+
+    function performSearch(){
+      const q = ($("search").value || "").trim();
+
+      // Easter egg ONLY for all caps IDEN
+      if (q === "IDEN"){
         closeDropdown();
         closeSearchCard();
-        closeCtxMenu();
-        if ($("egg").classList.contains("open")) closeEgg();
-        if ($("authModal").classList.contains("open")) closeAuthModal(false);
-      }
-    });
-
-    // ===== Auth modal wiring =====
-    $("authClose").onclick = () => closeAuthModal(false);
-
-    $("tabSignIn").onclick = () => setAuthMode("signin");
-    $("tabCreate").onclick = () => setAuthMode("create");
-
-    $("btnGoogle").onclick = async () => {
-      hideAuthError();
-      const ok = await ensureFirebaseReady();
-      if(!ok) return showAuthError("Firebase not ready. Check your Firebase config.");
-      const { auth, provider, signInWithPopup } = window.__fb;
-      try{
-        await signInWithPopup(auth, provider);
-        closeAuthModal(true);
-      } catch(e){
-        console.error(e);
-        showAuthError("Google sign-in failed. Check Firebase Auth settings and authorized domain.");
-      }
-    };
-
-    $("btnEmailAction").onclick = async () => {
-      hideAuthError();
-      const ok = await ensureFirebaseReady();
-      if(!ok) return showAuthError("Firebase not ready. Check your Firebase config.");
-
-      const email = ($("authEmail").value || "").trim();
-      const pass  = ($("authPass").value || "").trim();
-      if(!email || !pass) return showAuthError("Enter email + password.");
-
-      const { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = window.__fb;
-
-      try{
-        if(authMode === "create"){
-          await createUserWithEmailAndPassword(auth, email, pass);
-        } else {
-          await signInWithEmailAndPassword(auth, email, pass);
-        }
-        closeAuthModal(true);
-      } catch(e){
-        console.error(e);
-        const msg = (e?.code === "auth/email-already-in-use") ? "Email already in use. Try Sign in."
-                  : (e?.code === "auth/invalid-credential") ? "Invalid email or password."
-                  : (e?.code === "auth/weak-password") ? "Password too weak (try 6+ chars)."
-                  : (e?.code === "auth/operation-not-allowed") ? "Enable Email/Password in Firebase Auth → Sign-in method."
-                  : "Auth failed. Check Firebase Authentication settings.";
-        showAuthError(msg);
-      }
-    };
-
-    // Click outside modal closes it
-    $("authModal").addEventListener("click", (e) => {
-      if(e.target && e.target.id === "authModal") closeAuthModal(false);
-    });
-
-    // ===== Context menu actions =====
-    $("ctxClose").onclick = () => closeCtxMenu();
-
-    $("ctxAddPin").onclick = async () => {
-      closeCtxMenu();
-      if(!ctxLngLat) return;
-
-      const { lng, lat } = ctxLngLat;
-      if(!isInCA(lng, lat)) return;
-
-      const ok = await requireAuthOrPrompt();
-      if(!ok) return;
-
-      const user = currentUser();
-      const pin = addPin(lng, lat, "Dropped Pin", "", { ownerUid: user.uid, ownerName: user.displayName || user.email || "" });
-
-      map.flyTo({ center:[lng, lat], zoom: 16.5, speed: 1.2, curve: 1.42 });
-      openSearchCard({ name: pin.title, full: "Pinned location", lng, lat });
-    };
-
-    // ✅ NEW delete option from menu (no confirm, allows no-photo pins)
-    $("ctxDeletePin").onclick = async () => {
-      const pinId = ctxTargetPinId;
-      closeCtxMenu();
-      if(!pinId) return;
-
-      const pin = pins.get(pinId);
-      if(!pin) return;
-
-      const ok = await requireAuthOrPrompt();
-      if(!ok) return;
-
-      const user = currentUser();
-      if(!user || pin.ownerUid !== user.uid){
-        alert("You can only delete your own pins.");
+        openEgg();
         return;
       }
 
-      await deletePin(pin);
-    };
-  }
-
-  // ✅ Add Delete item to the existing context menu in DOM (no top-half edit needed)
-  (function injectDeleteMenuRow(){
-    const menu = $("ctxMenu");
-    const closeItem = $("ctxClose");
-    if(!menu || !closeItem) return;
-
-    if(!$("ctxDeletePin")){
-      const del = document.createElement("div");
-      del.className = "item";
-      del.id = "ctxDeletePin";
-      del.innerHTML = `🗑️ Delete this pin <span class="sub">Menu</span>`;
-      del.style.display = "none";
-      menu.insertBefore(del, closeItem);
+      maptilerSearch(q);
     }
-  })();
 
-  // ===== Start App =====
-  initMap();
-  wireUI();
+    function locateMe(){
+      if (!navigator.geolocation){
+        alert("Geolocation not available in this browser.");
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          if (!isInCA(longitude, latitude)){
+            alert("Your location appears outside California. The map is locked to CA.");
+            return;
+          }
+          map.flyTo({ center:[longitude, latitude], zoom: 14.5, speed: 1.2, curve: 1.42 });
+        },
+        () => alert("Couldn’t get your location. Check browser permissions."),
+        { enableHighAccuracy:true, timeout: 10000 }
+      );
+    }
 
-  // Keep UI in sync with auth state (optional)
-  (async () => {
-    const ok = await ensureFirebaseReady();
-    if(!ok) return;
-    const { auth, onAuthStateChanged } = window.__fb;
-    onAuthStateChanged(auth, (user) => {
-      // optional global UI hooks
-    });
-  })();
-</script>
+    function setToolbarCollapsed(collapsed){
+      const topbar = $("topbar");
+      topbar.classList.toggle("collapsed", collapsed);
+      $("toggleIcon").textContent = collapsed ? "⌄" : "⌃";
+      $("toggleText").textContent = collapsed ? "Show" : "Hide";
+      $("togglePill").style.top = collapsed ? "14px" : "92px";
+      if (collapsed) closeDropdown();
+    }
 
+    function wireUI(){
+      // Style switch
+      $("styleSel").addEventListener("change", () => {
+        const v = $("styleSel").value;
+        map.setStyle(STYLES[v] || STYLES.streets);
+      });
+
+      $("btnLocate").onclick = () => locateMe();
+
+      $("btnHelp").onclick = () => {
+        alert(
+          "How to use:\n\n" +
+          "• Search an address and click a result\n" +
+          "• Use “Add pin” from the search result or bottom card\n" +
+          "• Tap a pin to open the memory (photos + story + music)\n" +
+          "• Right-click map (desktop) to open add/delete menu\n" +
+          "• Double-tap on phone to open the add/delete menu\n\n" +
+          "Owner-only:\n" +
+          "• Only the creator of a pin can delete it\n" +
+          "• Owner can edit title/story/music\n\n" +
+          "Secret: type IDEN (all caps) then Search\n"
+        );
+      };
+
+      // Search typing
+      $("search").addEventListener("input", debounce((e) => {
+        const v = e.target.value;
+        $("clearSearch").classList.toggle("show", !!v);
+        if (v.trim() === "IDEN") { closeDropdown(); return; }
+        maptilerSearch(v);
+      }, 250));
+
+      $("search").addEventListener("keydown", (e) => {
+        if (e.key === "Enter"){
+          e.preventDefault();
+          performSearch();
+        }
+      });
+
+      $("btnSearch").onclick = () => performSearch();
+
+      $("clearSearch").onclick = () => {
+        $("search").value = "";
+        $("clearSearch").classList.remove("show");
+        closeDropdown();
+        closeSearchCard();
+      };
+
+      document.addEventListener("click", (ev) => {
+        // Close dropdown if clicked outside searchWrap
+        const dd = $("dropdown");
+        const searchWrap = document.querySelector(".searchWrap");
+        if (dd.classList.contains("open") && searchWrap && !searchWrap.contains(ev.target)) closeDropdown();
+
+        // Close context menu if clicked outside it
+        const ctx = $("ctxMenu");
+        if (ctx.classList.contains("open") && !ctx.contains(ev.target)) closeCtxMenu();
+      });
+
+      $("btnClearResult").onclick = () => closeSearchCard();
+
+      $("btnAddPinFromResult").onclick = async () => {
+        const f = lastSearchFeature;
+        if(!f || typeof f.lng !== "number" || typeof f.lat !== "number") return;
+        if(!isInCA(f.lng, f.lat)) return;
+
+        const ok = await requireAuthOrPrompt();
+        if(!ok) return;
+
+        const user = currentUser();
+        const title = (f.placeType === "address") ? (f.name || "Memory") : (f.full || f.name || "Memory");
+
+        addPin(f.lng, f.lat, title, f.full || "", {
+          ownerUid: user.uid,
+          ownerName: user.displayName || user.email || "",
+          tag: "Memory"
+        });
+
+        // keep card open, but show pinned
+        openSearchCard({ name: title, full: "Pinned location", lng: f.lng, lat: f.lat, placeType: "pinned" });
+      };
+
+      // Easter egg close
+      $("btnEggClose").onclick = () => closeEgg();
+      $("egg").addEventListener("click", (e) => { if (e.target && e.target.id === "egg") closeEgg(); });
+
+      // Toolbar toggle
+      let collapsed = false;
+      $("togglePill").onclick = () => {
+        collapsed = !collapsed;
+        setToolbarCollapsed(collapsed);
+      };
+      setToolbarCollapsed(false);
+
+      // Escape closes everything
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          closeDropdown();
+          closeSearchCard();
+          closeCtxMenu();
+          if ($("egg").classList.contains("open")) closeEgg();
+          if ($("authModal").classList.contains("open")) closeAuthModal(false);
+        }
+      });
+
+      // Context menu actions
+      $("ctxClose").onclick = () => closeCtxMenu();
+
+      $("ctxAddPin").onclick = async () => {
+        closeCtxMenu();
+        if(!ctxLngLat) return;
+
+        const { lng, lat } = ctxLngLat;
+        if(!isInCA(lng, lat)) return;
+
+        const ok = await requireAuthOrPrompt();
+        if(!ok) return;
+
+        const user = currentUser();
+        const pin = addPin(lng, lat, "New memory", "", {
+          ownerUid: user.uid,
+          ownerName: user.displayName || user.email || "",
+          tag: "Memory"
+        });
+
+        map.flyTo({ center:[lng, lat], zoom: 16.8, speed: 1.2, curve: 1.42 });
+        openSearchCard({ name: pin.title, full: "Pinned location", lng, lat, placeType: "pinned" });
+
+        // open popup immediately
+        try{ pin.marker.togglePopup(); } catch {}
+      };
+
+      $("ctxDeletePin").onclick = async () => {
+        const pinId = ctxPinId;
+        closeCtxMenu();
+        if(!pinId) return;
+        const pin = pins.get(pinId);
+        if(!pin) return;
+
+        // ✅ Requested: no confirm popups — delete immediately if owner
+        const ok = await deletePinNow(pin);
+        if(!ok){
+          alert("Could not delete (must be owner + signed in). Check Firestore rules.");
+        }
+      };
+
+      // ===== Auth modal wiring =====
+      $("authClose").onclick = () => closeAuthModal(false);
+
+      $("tabSignIn").onclick = () => setAuthMode("signin");
+      $("tabCreate").onclick = () => setAuthMode("create");
+
+      $("btnGoogle").onclick = async () => {
+        hideAuthError();
+        const ok = await ensureFirebaseReady();
+        if(!ok) return showAuthError("Firebase not ready. Check your Firebase config.");
+        const { auth, provider, signInWithPopup } = window.__fb;
+        try{
+          await signInWithPopup(auth, provider);
+          closeAuthModal(true);
+        } catch(e){
+          console.error(e);
+          showAuthError("Google sign-in failed. Check Firebase Auth settings and authorized domain.");
+        }
+      };
+
+      $("btnEmailAction").onclick = async () => {
+        hideAuthError();
+        const ok = await ensureFirebaseReady();
+        if(!ok) return showAuthError("Firebase not ready. Check your Firebase config.");
+
+        const email = ($("authEmail").value || "").trim();
+        const pass  = ($("authPass").value || "").trim();
+        if(!email || !pass) return showAuthError("Enter email + password.");
+
+        const { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = window.__fb;
+
+        try{
+          if(authMode === "create"){
+            await createUserWithEmailAndPassword(auth, email, pass);
+          } else {
+            await signInWithEmailAndPassword(auth, email, pass);
+          }
+          closeAuthModal(true);
+        } catch(e){
+          console.error(e);
+          const msg = (e?.code === "auth/email-already-in-use") ? "Email already in use. Try Sign in."
+                    : (e?.code === "auth/invalid-credential") ? "Invalid email or password."
+                    : (e?.code === "auth/weak-password") ? "Password too weak (try 6+ chars)."
+                    : (e?.code === "auth/operation-not-allowed") ? "Enable Email/Password in Firebase Auth → Sign-in method."
+                    : "Auth failed. Check Firebase Authentication settings.";
+          showAuthError(msg);
+        }
+      };
+
+      // Click outside modal closes it
+      $("authModal").addEventListener("click", (e) => {
+        if(e.target && e.target.id === "authModal") closeAuthModal(false);
+      });
+    }
+
+    // ===== Start App =====
+    initMap();
+    wireUI();
+
+    // Keep auth state listener alive (optional)
+    (async () => {
+      const ok = await ensureFirebaseReady();
+      if(!ok) return;
+      const { auth, onAuthStateChanged } = window.__fb;
+      onAuthStateChanged(auth, (user) => {
+        // console.log("Auth:", user?.email || user?.displayName || "signed out");
+      });
+    })();
+  </script>
 </body>
 </html>
