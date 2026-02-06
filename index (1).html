@@ -1,0 +1,3459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Our Story Map</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card: rgba(15,27,51,.94);
+      --card2: rgba(0,0,0,.18);
+      --border: rgba(255,255,255,.12);
+      --text:#eaf1ff;
+      --muted:#9bb0d0;
+      --accent:#6aa7ff;
+      --danger:#ff6a7a;
+      --ok:#4ee6a8;
+      --shadow: 0 14px 40px rgba(0,0,0,.38);
+      --radius: 18px;
+      --pin-size: 18px;
+    }
+    *{box-sizing:border-box}
+    html, body {height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      overflow:hidden;
+    }
+    #map{position:fixed; inset:0; z-index:0}
+
+    /* ===== Top bar ===== */
+    .topbarWrap{
+      position:fixed; top:12px; left:12px; right:12px;
+      z-index:10; pointer-events:none;
+    }
+    .topbar{
+      pointer-events:auto;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:10px 12px;
+      background: rgba(11,18,32,.58);
+      border:1px solid var(--border);
+      border-radius: 22px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+    .brand{
+      display:flex; gap:10px; align-items:center;
+      font-weight:900; letter-spacing:.2px;
+      white-space:nowrap; min-width: 170px;
+    }
+    .brand .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(106,167,255,.55);
+      flex:0 0 auto;
+    }
+    .brand .sub{color:var(--muted); font-weight:800; font-size:12px}
+
+    .controls{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      justify-content:flex-end; position:relative; width:100%;
+    }
+    .searchWrap{
+      position:relative; display:flex; align-items:center; gap:8px;
+      min-width: min(560px, 62vw);
+      max-width: min(820px, 72vw);
+      flex: 1 1 auto;
+    }
+    .searchGroup{position:relative; width:100%; display:flex; align-items:center; gap:8px;}
+    .search{
+      width:100%;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:11px 42px 11px 40px;
+      color: var(--text);
+      outline:none;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .search:focus{ background: rgba(255,255,255,.13); border-color: rgba(106,167,255,.35); }
+    .searchIcon{
+      position:absolute; left:14px; top:50%;
+      transform: translateY(-50%);
+      opacity:.85; font-size:14px; pointer-events:none;
+    }
+    .clearBtn{
+      position:absolute; right:10px; top:50%;
+      transform: translateY(-50%);
+      border:none;
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      padding:6px 9px;
+      cursor:pointer;
+      display:none;
+    }
+    .clearBtn.show{display:block}
+
+    .select{
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:10px 10px;
+      color: var(--text);
+      outline:none;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .btn{
+      border:1px solid rgba(255,255,255,.12);
+      background: var(--accent);
+      color:#071126;
+      font-weight:900;
+      padding:10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn.ghost{background: rgba(255,255,255,.10); color: var(--text); font-weight:800;}
+    .btn.danger{background: rgba(255,106,122,.18); color: var(--text); border-color: rgba(255,106,122,.35);}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+    .btn:active{transform: translateY(1px)}
+
+    .userPill{border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.10); color: var(--text); padding:8px 10px; border-radius:999px; display:inline-flex; gap:8px; align-items:center; font-weight:900; cursor:pointer;}
+    .userPill .dot{width:8px;height:8px;border-radius:999px;background:#ff6a7a;box-shadow:0 0 10px rgba(255,106,122,.5);}
+    .userPill.online .dot{background:#4ee6a8; box-shadow:0 0 10px rgba(78,230,168,.5);}
+
+    /* ===== Dropdown Search results ===== */
+    .dropdown{
+      position:absolute; top:56px; right:0;
+      width:min(650px, 92vw);
+      background: rgba(15,27,51,.96);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:none;
+      z-index:11;
+      backdrop-filter: blur(12px);
+    }
+    .dropdown.open{display:block}
+    .dd-head{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+    }
+    .dd-head .muted{color:var(--muted); font-size:12px}
+    .dd-item{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+      display:flex; gap:10px; align-items:flex-start;
+    }
+    .dd-item:hover{background: rgba(255,255,255,.06)}
+    .dd-ico{
+      width:30px; height:30px; border-radius:12px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      display:flex; align-items:center; justify-content:center;
+      flex:0 0 auto;
+      margin-top:1px;
+    }
+    .dd-title{font-weight:900; font-size:13px; line-height:1.2}
+    .dd-sub{color: var(--muted); font-size:12px; margin-top:2px}
+    .dd-actions{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:10px 12px;
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+
+    /* ===== Context menu ===== */
+    .ctx{
+      position:fixed; z-index:65;
+      display:none;
+      min-width: 230px;
+      background: rgba(15,27,51,.96);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+    }
+    .ctx.open{display:block}
+    .ctx .item{
+      padding:10px 12px;
+      cursor:pointer;
+      display:flex;align-items:center;gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-weight:900;
+    }
+    .ctx .item:last-child{border-bottom:0}
+    .ctx .item:hover{background: rgba(255,255,255,.06)}
+    .ctx .sub{font-weight:800;color:var(--muted);font-size:12px;margin-left:auto}
+
+    /* ===== Center modal ===== */
+    .modal{
+      position:fixed; inset:0;
+      z-index:80;
+      display:none;
+      background: rgba(0,0,0,.70);
+      backdrop-filter: blur(10px);
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    }
+    .modal.open{display:flex}
+    .panel{
+      width:min(1040px, 96vw);
+      height:min(86vh, 920px);
+      overflow:hidden;
+      background: var(--card);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+    }
+    .panelHead{
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex:0 0 auto;
+    }
+    .panelBody{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1.35fr .95fr;
+      gap:12px;
+      overflow:hidden;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    @media (max-width: 900px){
+      :root{--pin-size: 22px;}
+      .topbarWrap{top: max(8px, env(safe-area-inset-top)); left:8px; right:8px;}
+      .topbar{flex-wrap:wrap; gap:8px; padding:10px;}
+      .controls{width:100%; justify-content:space-between;}
+      .searchWrap{min-width:100%; max-width:100%;}
+      .search{padding:12px 42px 12px 38px;}
+      .btn, .select, .userPill{min-height:44px; padding:10px 12px;}
+      .dropdown{width: min(720px, 96vw); left:0; right:auto;}
+
+      .panel{height:min(94vh, 1100px)}
+      .panelBody{grid-template-columns:1fr; padding:10px;}
+      .gallery{padding:10px;}
+      .rightScroll{padding:10px;}
+      .stickyBar{padding:10px; position:static;}
+      .label{font-size:12px;}
+      .input, .textarea, .select2{font-size:14px;}
+    }
+
+    .card{background: var(--card2); border:1px solid rgba(255,255,255,.10); border-radius: 18px; overflow:hidden; min-height:0; display:flex; flex-direction:column;}
+    .leftScroll{overflow:auto; min-height:0; flex:1 1 auto;}
+    .gallery{display:flex; flex-direction:column; gap:10px; padding:12px;}
+    .stageWrap{border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.06);}
+    .stage{position:relative; aspect-ratio:16/10; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,.06);}
+    .stage img{width:100%; height:100%; object-fit:contain; display:none;}
+    .stageBadge{position:absolute; left:10px; top:10px; background: rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.18); padding:6px 8px; border-radius:999px; font-size:11px; font-weight:900; max-width: 92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+    .emptyStage{color:rgba(255,255,255,.70); font-weight:900; padding:16px; text-align:center;}
+    .nav{position:absolute; inset:0; display:none; align-items:center; justify-content:space-between; padding:10px; pointer-events:none;}
+    .nav button{pointer-events:auto; width:40px;height:40px;border-radius:999px;border:0;cursor:pointer;font-weight:950;background: rgba(255,255,255,.92);color:#071126;}
+    .thumbs{display:grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap:8px;}
+    .thumb{position:relative; border-radius:14px; overflow:hidden; border:2px solid transparent; cursor:pointer; background: rgba(255,255,255,.06); aspect-ratio:1/1;}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+    .thumb.active{border-color: rgba(106,167,255,.85)}
+    .badge{position:absolute; left:8px; bottom:8px; background: rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.18); padding:4px 7px; border-radius:999px; font-size:11px; font-weight:900; max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+    .stickyBar{position:sticky; bottom:0; z-index:2; background: rgba(11,18,32,.78); border-top:1px solid rgba(255,255,255,.10); backdrop-filter: blur(12px); padding:12px;}
+    .rightScroll{overflow:auto; min-height:0; flex:1 1 auto; padding:12px; display:flex; flex-direction:column; gap:10px;}
+    .label{font-size:12px;color:var(--muted);font-weight:850;}
+    .input, .textarea, .select2{width:100%; background: rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.14); border-radius: 12px; padding:10px 10px; color: var(--text); outline:none; font-size:13px;}
+    .textarea{min-height:110px; resize:vertical;}
+    .help{color:rgba(255,255,255,.75); font-size:12px; line-height:1.35;}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius: 999px; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); font-weight:900; font-size:12px;}
+    .pill.ok{border-color: rgba(78,230,168,.35); background: rgba(78,230,168,.12);}
+    .pill.bad{border-color: rgba(255,106,122,.35); background: rgba(255,106,122,.12);}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between;}
+    .rowL{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    .rowR{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end;}
+
+    .commentsWrap{border-top:1px solid rgba(255,255,255,.10); margin-top:8px; padding-top:10px; display:flex; flex-direction:column; gap:8px;}
+    .comment{padding:10px 10px; border:1px solid rgba(255,255,255,.10); background: rgba(0,0,0,.16); border-radius: 14px; display:flex; flex-direction:column; gap:4px;}
+    .comment .meta{font-size:12px;color:var(--muted);font-weight:850;}
+    .comment .txt{font-size:13px;color:var(--text);white-space:pre-wrap;}
+
+    .auth{position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center; padding:16px; background: rgba(0,0,0,.72); backdrop-filter: blur(10px);}
+    .auth.open{display:flex}
+    .auth-card{width:min(520px, 96vw); background: rgba(15,27,51,.96); border:1px solid rgba(255,255,255,.12); border-radius: 20px; box-shadow: var(--shadow); overflow:hidden;}
+    .auth-head{display:flex;align-items:center;justify-content:space-between;gap:10px; padding:12px 12px;border-bottom:1px solid rgba(255,255,255,.10)}
+    .auth-title{font-weight:900}
+    .auth-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+    .auth-tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .auth-tab{border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: var(--text); padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:900;font-size:12px;}
+    .auth-tab.active{ background: var(--accent); color:#071126; border-color: rgba(255,255,255,.16); }
+    .auth-error{color:#ffb3bb;font-size:12px;display:none}
+    .auth-error.show{display:block}
+
+    .maplibregl-ctrl-attrib{
+      background: rgba(15,27,51,.75) !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      border-radius: 12px !important;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="topbarWrap">
+    <div class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>Our Story Map</span>
+        <span class="sub">🌍</span>
+      </div>
+
+      <div class="controls">
+        <select id="styleSel" class="select" title="Map style">
+          <option value="streets">Streets</option>
+          <option value="satellite">Satellite</option>
+          <option value="hybrid">Satellite + Labels</option>
+        </select>
+
+        <div class="searchWrap">
+          <div class="searchGroup">
+            <span class="searchIcon">🔎</span>
+            <input id="search" class="search" type="text" placeholder="Search an address (ex: 123 Main St, Fresno CA)..." autocomplete="off" />
+            <button id="clearSearch" class="clearBtn" title="Clear">✕</button>
+          </div>
+
+          <button id="btnSearch" class="btn ghost" title="Search">Search</button>
+          <div id="dropdown" class="dropdown"></div>
+        </div>
+
+        <button id="btnLocate" class="btn ghost">Locate</button>
+        <button id="btnHelp" class="btn ghost">Help</button>
+        <button id="userPill" class="userPill" title="Account">
+          <span class="dot" id="userDot"></span>
+          <span id="userName">Sign in</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div class="ctx" id="ctxMenu">
+    <div class="item" id="ctxAddPin">📌 Add a pin here <span class="sub">Map</span></div>
+    <div class="item" id="ctxDeletePin" style="display:none;">🗑️ Delete this pin <span class="sub">Owner</span></div>
+    <div class="item" id="ctxClose">✕ Close</div>
+  </div>
+
+  <!-- Pin Modal -->
+  <div class="modal" id="pinModal" aria-hidden="true">
+    <div class="panel">
+      <div class="panelHead">
+        <div class="panelTitle">
+          <div class="h1" id="pmTitle">Memory</div>
+          <div class="h2" id="pmSub">Address</div>
+        </div>
+        <div class="rowR">
+          <button class="btn ghost" id="pmFly">Fly to</button>
+          <button class="btn ghost" id="pmClose">✕</button>
+        </div>
+      </div>
+
+      <div class="panelBody">
+        <!-- LEFT -->
+        <div class="card">
+          <div class="leftScroll" id="leftScroll">
+            <div class="gallery">
+              <div class="stageWrap">
+                <div class="stage">
+                  <div class="emptyStage" id="stageEmpty">No photos yet. Upload one to start the story.</div>
+                  <img id="stageImg" alt="photo" />
+                  <div class="stageBadge" id="stageBadge" style="display:none;"></div>
+                  <div class="nav" id="stageNav">
+                    <button id="prevBtn">‹</button>
+                    <button id="nextBtn">›</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="thumbs" id="thumbs"></div>
+
+              <div class="help" id="photoMeta" style="margin-top:2px;"></div>
+            </div>
+
+            <div class="stickyBar">
+              <div class="row">
+                <div class="rowL">
+                  <span class="pill" id="authPill">Checking sign-in…</span>
+                  <span class="pill ok" id="ownerPill" style="display:none;">You own this pin</span>
+                </div>
+              </div>
+
+              <div style="height:10px"></div>
+
+              <div class="row">
+                <div style="min-width:240px">
+                  <div class="label">Upload photos</div>
+                  <div class="help">Pick 1+ photos. Gallery auto-cycles when there’s more than one.</div>
+                </div>
+                <div class="rowR">
+                  <button class="btn" id="btnUpload" disabled>Upload</button>
+                  <input id="fileInput" type="file" accept="image/*" multiple style="display:none" />
+                </div>
+              </div>
+
+              <div style="height:10px"></div>
+
+              <div class="label">Caption for this upload (optional)</div>
+              <input class="input" id="uploadCaption" placeholder="Ex: “This was the night we laughed for hours…”" disabled />
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card">
+          <div class="rightScroll" id="rightScroll">
+            <div>
+              <div class="label">Category</div>
+              <select class="select2" id="pmCategory" disabled>
+                <option value="First Date">First Date</option>
+                <option value="First Fight">First Fight</option>
+                <option value="Proposal">Proposal</option>
+                <option value="Future Memory">Future Memory</option>
+                <option value="Trip">Trip</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="label">Title</div>
+              <input class="input" id="pmTitleInput" placeholder="Ex: Our first coffee ☕" disabled />
+            </div>
+
+            <div>
+              <div class="label">Story</div>
+              <textarea class="textarea" id="pmStory" placeholder="Write a short memory…" disabled></textarea>
+            </div>
+
+            <div>
+              <div class="label">Music link (YouTube / Spotify / Apple Music)</div>
+              <input class="input" id="pmMusicUrl" placeholder="Paste a link…" disabled />
+              <div style="height:10px"></div>
+              <div id="musicEmbed" class="card" style="background:rgba(0,0,0,.22); border-color:rgba(255,255,255,.10); display:none;">
+                <div style="padding:10px;">
+                  <div class="label" style="margin-bottom:8px;">Music</div>
+                  <div id="musicFrameWrap"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="label">Pin details</div>
+              <div class="rowR">
+                <button class="btn ghost" id="btnEdit" disabled>Edit</button>
+                <button class="btn" id="btnSave" disabled style="display:none;">Save</button>
+                <button class="btn ghost" id="btnCancelEdit" disabled style="display:none;">Cancel</button>
+              </div>
+            </div>
+
+            <div class="commentsWrap">
+              <div class="row">
+                <div class="label">Comments</div>
+                <div class="help" id="commentsHint">Sign in to comment.</div>
+              </div>
+
+              <div class="row">
+                <div class="rowL">
+                  <button class="btn ghost" id="btnLike" disabled>❤️ Like</button>
+                  <span class="pill" id="likeCountPill">0 likes</span>
+                </div>
+              </div>
+
+              <div class="row" style="gap:8px;">
+                <input class="input" id="commentInput" placeholder="Write a comment…" disabled />
+                <button class="btn" id="btnPostComment" disabled>Post</button>
+              </div>
+
+              <div id="commentsList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth modal -->
+  <div class="auth" id="authModal" aria-hidden="true">
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="auth-title">Sign in</div>
+        <button class="btn ghost" id="authClose">✕</button>
+      </div>
+      <div class="auth-body">
+        <div class="help">
+          You need an account to add pins, upload photos, like, comment, and edit your pins.
+        </div>
+
+        <div id="authSignedIn" class="card" style="padding:10px; display:none;">
+          <div class="row" style="justify-content:space-between;">
+            <div class="help">Signed in as <b id="authUserName">you</b></div>
+            <button class="btn ghost" id="authSignOut">Sign out</button>
+          </div>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabSignIn">Sign in</button>
+          <button class="auth-tab" id="tabCreate">Create account</button>
+        </div>
+
+        <div class="auth-error" id="authErr"></div>
+
+        <input class="input" id="authEmail" type="email" placeholder="Email" autocomplete="email" />
+        <input class="input" id="authPass" type="password" placeholder="Password" autocomplete="current-password" />
+
+        <div class="row" style="justify-content:flex-end;">
+          <button class="btn ghost" id="btnGoogle">Continue with Google</button>
+          <button class="btn" id="btnEmailAction">Sign in</button>
+        </div>
+
+        <div class="help">
+          If email/password fails, enable <b>Email/Password</b> in Firebase Authentication → Sign-in method.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- ================= Firebase ================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      orderBy,
+      serverTimestamp,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import {
+      getStorage,
+      ref,
+      uploadBytes,
+      getDownloadURL,
+      deleteObject,
+      listAll
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyArJ2PR7-YJpjtlsVnZaCUNireuVpdq6ZE",
+      authDomain: "the-map-f43ff.firebaseapp.com",
+      projectId: "the-map-f43ff",
+      storageBucket: "the-map-f43ff.firebasestorage.app",
+      messagingSenderId: "110766323620",
+      appId: "1:110766323620:web:e3b0a9b995c088d12e7331",
+      measurementId: "G-CYEC068G15"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const provider = new GoogleAuthProvider();
+
+    window.__fb = {
+      auth, db, storage, provider,
+      signInWithPopup, signOut, onAuthStateChanged,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      doc, setDoc, getDoc, updateDoc, deleteDoc,
+      collection, addDoc, getDocs, query, orderBy, serverTimestamp,
+      runTransaction,
+      ref, uploadBytes, getDownloadURL, deleteObject, listAll
+    };
+  </script>
+
+  <!-- ================= App Script ================= -->
+  <script>
+    // ======= YOU EDIT THESE =======
+    const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
+
+    const STYLES = {
+      streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+      satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
+      hybrid:    `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`
+    };
+
+    // Optional CA lock (keep if you want CA only)
+    const CA_BOUNDS = [
+      [-124.482003, 32.528832],
+      [-114.131211, 42.009518]
+    ];
+    const LOCK_TO_CA = true;
+
+    // ======= Helpers =======
+    const $ = (id) => document.getElementById(id);
+    const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
+
+    function escapeHtml(s){
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+    }
+
+    function isInCA(lng, lat){
+      return (
+        lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
+        lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1]
+      );
+    }
+
+    function showGeocodeBlocked(status){
+      alert(
+        `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
+        `Key → Allowed HTTP Origins must be EXACTLY one of:\n` +
+        `• oscarxvera.github.io\n` +
+        `OR\n` +
+        `• https://oscarxvera.github.io\n\n` +
+        `No paths, no duplicates.`
+      );
+    }
+
+    async function ensureFirebaseReady(){
+      const maxMs = 8000;
+      const start = Date.now();
+      while(!window.__fb){
+        if(Date.now() - start > maxMs) break;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return !!window.__fb;
+    }
+
+    function currentUser(){ return window.__fb?.auth?.currentUser || null; }
+
+    function colorFromUid(uid){
+      if(!uid) return "#ffffff";
+      let hash = 0;
+      for (let i=0;i<uid.length;i++) { hash = ((hash<<5)-hash) + uid.charCodeAt(i); hash |= 0; }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue} 85% 62%)`;
+    }
+
+    function markerEl(color){
+      const size = getComputedStyle(document.documentElement).getPropertyValue("--pin-size").trim() || "18px";
+      const el = document.createElement("div");
+      el.style.width = size;
+      el.style.height = size;
+      el.style.borderRadius = "999px";
+      el.style.background = color || "#ffffff";
+      el.style.border = "2px solid rgba(255,255,255,.95)";
+      el.style.boxShadow = "0 10px 22px rgba(0,0,0,.35)";
+      el.style.cursor = "pointer";
+      return el;
+    }
+
+    function pinIdFromLngLat(lng, lat){
+      return `pin_${lng.toFixed(5)}_${lat.toFixed(5)}`
+        .replaceAll(".", "_")
+        .replaceAll("-", "m");
+    }
+
+    function toSafeFilename(name){
+      return String(name || "photo")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 60) || "photo";
+    }
+
+    function musicEmbedHTML(url){
+      const u = String(url || "").trim();
+      if(!u) return "";
+
+      const ytMatch =
+        u.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/) ||
+        u.match(/youtu\.be\/([a-zA-Z0-9_-]+)/) ||
+        u.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+      if(ytMatch){
+        const id = ytMatch[1];
+        return `<iframe width="100%" height="240" style="border:0;border-radius:14px;overflow:hidden"
+          src="https://www.youtube.com/embed/${id}"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>`;
+      }
+
+      if(u.includes("open.spotify.com/")){
+        const embed = u.replace("open.spotify.com", "open.spotify.com/embed");
+        return `<iframe style="border-radius:14px" src="${embed}" width="100%" height="152" frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+      }
+
+      if(u.includes("music.apple.com/")){
+        return `<iframe allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" frameborder="0"
+          height="175" style="width:100%;max-width:100%;overflow:hidden;border-radius:14px"
+          sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+          src="${u}"></iframe>`;
+      }
+
+      return `<div class="help">Unsupported link type. It will show as a link:</div>
+              <a href="${u}" target="_blank" rel="noopener" style="color:var(--accent); font-weight:900;">Open music</a>`;
+    }
+
+    // ======= Firebase data model =======
+    // pins/{pinId}
+    //  - title, story, category, musicUrl, address, lng, lat
+    //  - ownerUid, ownerName, ownerColor
+    //  - likeCount (number)
+    // pins/{pinId}/photos/{auto}
+    //  - url, storagePath, uploadedByUid, uploadedByName, caption, createdAt
+    // pins/{pinId}/comments/{auto}
+    //  - uid, name, text, createdAt
+    // pins/{pinId}/likes/{uid}
+    //  - uid, name, createdAt
+
+    async function upsertPinDoc(pin, isNew=false){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const { db, doc, setDoc, serverTimestamp } = window.__fb;
+
+      const payload = {
+        id: pin.id,
+        title: pin.title || "Memory",
+        story: pin.story || "",
+        category: pin.category || "Other",
+        musicUrl: pin.musicUrl || "",
+        address: pin.address || "",
+        lng: pin.lng,
+        lat: pin.lat,
+        ownerUid: pin.ownerUid || null,
+        ownerName: pin.ownerName || "",
+        ownerColor: pin.ownerColor || "#ffffff",
+        likeCount: typeof pin.likeCount === "number" ? pin.likeCount : 0,
+        updatedAt: serverTimestamp()
+      };
+      if(isNew) payload.createdAt = serverTimestamp();
+
+      await setDoc(doc(db, "pins", pin.id), payload, { merge:true });
+    }
+
+    async function fetchAllPins(){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs } = window.__fb;
+      const snap = await getDocs(collection(db, "pins"));
+      return snap.docs.map(d => ({ ...d.data(), __id: d.id }));
+    }
+
+    async function fetchPin(pinId){
+      if(!await ensureFirebaseReady()) return null;
+      const { db, doc, getDoc } = window.__fb;
+      const s = await getDoc(doc(db, "pins", pinId));
+      return s.exists() ? s.data() : null;
+    }
+
+    async function fetchPhotos(pinId){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs, query, orderBy } = window.__fb;
+      const col = collection(db, "pins", pinId, "photos");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
+    }
+
+    async function fetchComments(pinId){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs, query, orderBy } = window.__fb;
+      const col = collection(db, "pins", pinId, "comments");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
+    }
+
+    async function uploadPhotos(pinId, files, caption){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+
+      const { storage, ref, uploadBytes, getDownloadURL, db, collection, addDoc, serverTimestamp } = window.__fb;
+      const out = [];
+
+      for (const file of files){
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safe = toSafeFilename(file.name);
+        const path = `pins/${pinId}/${Date.now()}_${Math.random().toString(16).slice(2)}_${safe}.${ext}`;
+        const sRef = ref(storage, path);
+
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+
+        await addDoc(collection(db, "pins", pinId, "photos"), {
+          url,
+          storagePath: path,
+          uploadedByUid: user.uid,
+          uploadedByName: user.displayName || user.email || "Unknown",
+          caption: (caption || "").trim(),
+          createdAt: serverTimestamp()
+        });
+
+        out.push(url);
+      }
+      return out;
+    }
+
+    async function addComment(pinId, text){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+      const { db, collection, addDoc, serverTimestamp } = window.__fb;
+
+      const t = (text || "").trim();
+      if(!t) return;
+
+      await addDoc(collection(db, "pins", pinId, "comments"), {
+        uid: user.uid,
+        name: user.displayName || user.email || "Unknown",
+        text: t,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    async function toggleLike(pinId){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+
+      const { db, doc, getDoc, runTransaction, serverTimestamp } = window.__fb;
+      const likeRef = doc(db, "pins", pinId, "likes", user.uid);
+      const likeSnap = await getDoc(likeRef);
+
+      await runTransaction(db, async (tx) => {
+        const pinRef = doc(db, "pins", pinId);
+        const pinSnap = await tx.get(pinRef);
+        const current = pinSnap.exists() ? (pinSnap.data().likeCount || 0) : 0;
+
+        if(likeSnap.exists()){
+          tx.update(pinRef, { likeCount: Math.max(0, current - 1) });
+          tx.delete(likeRef);
+        } else {
+          tx.update(pinRef, { likeCount: current + 1 });
+          tx.set(likeRef, {
+            uid: user.uid,
+            name: user.displayName || user.email || "Unknown",
+            createdAt: serverTimestamp()
+          });
+        }
+      });
+
+      return !likeSnap.exists();
+    }
+
+    async function isLikedByMe(pinId){
+      if(!await ensureFirebaseReady()) return false;
+      const user = currentUser();
+      if(!user) return false;
+      const { db, doc, getDoc } = window.__fb;
+      const s = await getDoc(doc(db, "pins", pinId, "likes", user.uid));
+      return s.exists();
+    }
+
+    async function deletePinEverywhere(pin){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+      if(pin.ownerUid !== user.uid) throw new Error("Not owner");
+
+      const { db, doc, deleteDoc, storage, ref, deleteObject, listAll, collection, getDocs } = window.__fb;
+
+      try{
+        const folderRef = ref(storage, `pins/${pin.id}`);
+        const listing = await listAll(folderRef);
+        for (const item of listing.items){
+          try{ await deleteObject(item); } catch(e){ console.warn("delete storage item failed", e); }
+        }
+      } catch(e){ console.warn("listAll failed (ok):", e); }
+
+      const subcols = ["photos","comments","likes"];
+      for (const sub of subcols){
+        try{
+          const snap = await getDocs(collection(db, "pins", pin.id, sub));
+          for (const d of snap.docs){
+            try{ await deleteDoc(d.ref); } catch(e){}
+          }
+        } catch(e){}
+      }
+
+      await deleteDoc(doc(db, "pins", pin.id));
+    }
+
+    let authMode = "signin";
+    let authResolve = null;
+
+    function showAuthError(msg){
+      const el = $("authErr");
+      el.textContent = msg || "Something went wrong.";
+      el.classList.add("show");
+    }
+    function hideAuthError(){
+      const el = $("authErr");
+      el.textContent = "";
+      el.classList.remove("show");
+    }
+    function setAuthMode(mode){
+      authMode = mode;
+      $("tabSignIn").classList.toggle("active", mode === "signin");
+      $("tabCreate").classList.toggle("active", mode === "create");
+      $("btnEmailAction").textContent = mode === "signin" ? "Sign in" : "Create account";
+      $("authPass").setAttribute("autocomplete", mode === "signin" ? "current-password" : "new-password");
+      hideAuthError();
+    }
+    function openAuthModal(){
+      $("authModal").classList.add("open");
+      $("authModal").setAttribute("aria-hidden","false");
+      setAuthMode("signin");
+      $("authEmail").focus();
+      return new Promise((resolve)=>{ authResolve = resolve; });
+    }
+    function closeAuthModal(ok=false){
+      $("authModal").classList.remove("open");
+      $("authModal").setAttribute("aria-hidden","true");
+      hideAuthError();
+      if(authResolve){ authResolve(ok); authResolve = null; }
+    }
+    async function requireAuth(){
+      if(!await ensureFirebaseReady()){
+        alert("Firebase not configured yet.");
+        return false;
+      }
+      if(currentUser()) return true;
+      const ok = await openAuthModal();
+      return !!ok && !!currentUser();
+    }
+
+    let ctxLngLat = null;
+    let ctxPinId = null;
+    let longPressTimer = null;
+    let longPressMoved = false;
+    let longPressTriggered = false;
+    let longPressStart = null;
+    let lastTapTime = 0;
+    let lastTapPos = null;
+    let touchDoubleTapEnabled = false;
+
+    function openCtxMenu(x, y, lngLat, pinId=null){
+      ctxLngLat = lngLat;
+      ctxPinId = pinId;
+
+      const menu = $("ctxMenu");
+      menu.style.left = `${Math.min(x, window.innerWidth - 250)}px`;
+      menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
+
+      const del = $("ctxDeletePin");
+      del.style.display = "none";
+      if(pinId){
+        const p = pins.get(pinId);
+        const u = currentUser();
+        if(p && u && p.ownerUid === u.uid) del.style.display = "flex";
+      }
+
+      menu.classList.add("open");
+    }
+    function closeCtxMenu(){
+      $("ctxMenu").classList.remove("open");
+      ctxLngLat = null;
+      ctxPinId = null;
+    }
+
+    function startLongPress(ev, lngLat, pinId=null){
+      if(ev.pointerType !== "touch") return;
+      longPressMoved = false;
+      longPressStart = { x: ev.clientX, y: ev.clientY };
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        openCtxMenu(ev.clientX, ev.clientY, lngLat, pinId);
+      }, 550);
+    }
+    function cancelLongPress(){
+      if(longPressTimer){
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      longPressStart = null;
+    }
+
+    let map;
+    const pins = new Map();
+
+    function applyBounds(){
+      if(!LOCK_TO_CA) return;
+      map.setMaxBounds(CA_BOUNDS);
+      map.setMinZoom(5);
+      map.setMaxZoom(20);
+    }
+
+    function setStyle(key){
+      const url = STYLES[key] || STYLES.streets;
+      map.setStyle(url);
+    }
+
+    let activePin = null;
+    let activePhotos = [];
+    let activeIdx = 0;
+    let cycleTimer = null;
+    let isEditing = false;
+
+    function stopCycle(){
+      if(cycleTimer){ clearInterval(cycleTimer); cycleTimer = null; }
+    }
+    function startCycle(){
+      stopCycle();
+      if(activePhotos.length < 2) return;
+      cycleTimer = setInterval(() => {
+        activeIdx = (activeIdx + 1) % activePhotos.length;
+        renderGallery();
+      }, 3500);
+    }
+
+    function openModal(pin){
+      activePin = pin;
+      isEditing = false;
+
+      $("pinModal").classList.add("open");
+      $("pinModal").setAttribute("aria-hidden","false");
+
+      $("pmTitle").textContent = pin.title || "Memory";
+      $("pmSub").textContent = pin.address || `${pin.lng.toFixed(5)}, ${pin.lat.toFixed(5)}`;
+
+      $("pmCategory").value = pin.category || "Other";
+      $("pmTitleInput").value = pin.title || "Memory";
+      $("pmStory").value = pin.story || "";
+      $("pmMusicUrl").value = pin.musicUrl || "";
+      renderMusic(pin.musicUrl || "");
+
+      $("commentsList").innerHTML = "";
+      $("commentInput").value = "";
+
+      $("pmFly").onclick = () => {
+        map.flyTo({ center:[pin.lng, pin.lat], zoom: 17, speed: 1.2, curve: 1.4 });
+      };
+
+      updateAuthUI();
+      refreshEverything().catch(console.error);
+    }
+
+    function closeModal(){
+      stopCycle();
+      activePin = null;
+      activePhotos = [];
+      activeIdx = 0;
+      isEditing = false;
+
+      $("pinModal").classList.remove("open");
+      $("pinModal").setAttribute("aria-hidden","true");
+    }
+
+    function renderMusic(url){
+      const html = musicEmbedHTML(url);
+      const wrap = $("musicFrameWrap");
+      const box = $("musicEmbed");
+      wrap.innerHTML = html || "";
+      box.style.display = html ? "block" : "none";
+    }
+
+    function setEditing(on){
+      isEditing = !!on;
+      const canEdit = !!currentUser() && activePin && currentUser().uid === activePin.ownerUid;
+
+      ["pmCategory","pmTitleInput","pmStory","pmMusicUrl"].forEach((f) => {
+        $(f).disabled = !(on && canEdit);
+      });
+
+      $("btnSave").style.display = on ? "inline-flex" : "none";
+      $("btnCancelEdit").style.display = on ? "inline-flex" : "none";
+      $("btnEdit").style.display = on ? "none" : "inline-flex";
+    }
+
+    function updateAuthUI(){
+      const u = currentUser();
+      const authed = !!u;
+
+      $("btnUpload").disabled = !authed || !activePin;
+      $("uploadCaption").disabled = !authed || !activePin;
+
+      $("btnLike").disabled = !authed || !activePin;
+      $("commentInput").disabled = !authed || !activePin;
+      $("btnPostComment").disabled = !authed || !activePin;
+
+      const owner = !!u && !!activePin && u.uid === activePin.ownerUid;
+      $("btnEdit").disabled = !owner;
+      $("btnSave").disabled = !owner;
+      $("btnCancelEdit").disabled = !owner;
+
+      $("ownerPill").style.display = owner ? "inline-flex" : "none";
+
+      $("authPill").textContent = authed ? `Signed in as ${u.displayName || u.email}` : "Not signed in";
+      $("authPill").classList.toggle("ok", authed);
+      $("authPill").classList.toggle("bad", !authed);
+
+      $("commentsHint").textContent = authed ? "" : "Sign in to comment.";
+
+      $("userName").textContent = authed ? (u.displayName || u.email || "Signed in") : "Sign in";
+      $("userPill").classList.toggle("online", authed);
+
+      $("authSignedIn").style.display = authed ? "block" : "none";
+      $("authUserName").textContent = authed ? (u.displayName || u.email || "Signed in") : "";
+    }
+
+    function renderGallery(){
+      const empty = $("stageEmpty");
+      const img = $("stageImg");
+      const nav = $("stageNav");
+      const thumbs = $("thumbs");
+      const meta = $("photoMeta");
+      const badge = $("stageBadge");
+
+      if(!activePhotos.length){
+        empty.style.display = "block";
+        img.style.display = "none";
+        nav.style.display = "none";
+        badge.style.display = "none";
+        thumbs.innerHTML = "";
+        meta.textContent = "";
+        return;
+      }
+
+      empty.style.display = "none";
+      img.style.display = "block";
+
+      activeIdx = Math.max(0, Math.min(activeIdx, activePhotos.length - 1));
+      const p = activePhotos[activeIdx];
+
+      img.src = p.url;
+      const whoText = p.uploadedByName ? `Uploaded by ${p.uploadedByName}` : "Uploaded";
+      badge.textContent = whoText;
+      badge.style.display = "inline-flex";
+
+      nav.style.display = activePhotos.length > 1 ? "flex" : "none";
+
+      thumbs.innerHTML = "";
+      activePhotos.forEach((ph, i) => {
+        const t = document.createElement("div");
+        t.className = "thumb" + (i === activeIdx ? " active" : "");
+        const im = document.createElement("img");
+        im.src = ph.url;
+        t.appendChild(im);
+
+        const b = document.createElement("div");
+        b.className = "badge";
+        b.textContent = ph.uploadedByName ? `by ${ph.uploadedByName}` : "uploaded";
+        t.appendChild(b);
+
+        t.onclick = () => {
+          activeIdx = i;
+          renderGallery();
+          startCycle();
+        };
+        thumbs.appendChild(t);
+      });
+
+      const cap = (p.caption || "").trim();
+      meta.textContent = cap ? `${whoText} • “${cap}”` : whoText;
+    }
+
+    function renderComments(list){
+      const wrap = $("commentsList");
+      wrap.innerHTML = "";
+      for (const c of list){
+        const div = document.createElement("div");
+        div.className = "comment";
+        const dt = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        const when = dt ? dt.toLocaleString() : "";
+        div.innerHTML = `
+          <div class="meta">${escapeHtml(c.name || "Unknown")}${when ? " • " + escapeHtml(when) : ""}</div>
+          <div class="txt">${escapeHtml(c.text || "")}</div>
+        `;
+        wrap.appendChild(div);
+      }
+    }
+
+    async function refreshEverything(){
+      if(!activePin) return;
+
+      const fresh = await fetchPin(activePin.id);
+      if(fresh){
+        Object.assign(activePin, fresh);
+
+        $("pmTitle").textContent = fresh.title || "Memory";
+        $("pmSub").textContent = fresh.address || `${fresh.lng?.toFixed?.(5)}, ${fresh.lat?.toFixed?.(5)}`;
+        if(!isEditing){
+          $("pmCategory").value = fresh.category || "Other";
+          $("pmTitleInput").value = fresh.title || "Memory";
+          $("pmStory").value = fresh.story || "";
+          $("pmMusicUrl").value = fresh.musicUrl || "";
+          renderMusic(fresh.musicUrl || "");
+        }
+        $("likeCountPill").textContent = `${fresh.likeCount || 0} likes`;
+      } else {
+        $("likeCountPill").textContent = "0 likes";
+      }
+
+      activePhotos = await fetchPhotos(activePin.id);
+      activeIdx = 0;
+      renderGallery();
+      startCycle();
+
+      const comments = await fetchComments(activePin.id);
+      renderComments(comments);
+
+      const liked = await isLikedByMe(activePin.id);
+      $("btnLike").textContent = liked ? "💔 Unlike" : "❤️ Like";
+
+      updateAuthUI();
+      setEditing(false);
+    }
+
+    function addPinMarker(pin, fromDb=false){
+      if(pins.has(pin.id)) return pins.get(pin.id);
+
+      const el = markerEl(pin.ownerColor || "#ffffff");
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([pin.lng, pin.lat])
+        .addTo(map);
+
+      const obj = { ...pin, marker };
+      pins.set(pin.id, obj);
+
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        openModal(obj);
+      });
+
+      el.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openCtxMenu(ev.clientX, ev.clientY, { lng: obj.lng, lat: obj.lat }, obj.id);
+      });
+
+      el.addEventListener("pointerdown", (ev) => {
+        if(ev.pointerType !== "touch") return;
+        startLongPress(ev, { lng: obj.lng, lat: obj.lat }, obj.id);
+      });
+      el.addEventListener("pointermove", (ev) => {
+        if(ev.pointerType !== "touch" || !longPressStart) return;
+        const dx = ev.clientX - longPressStart.x;
+        const dy = ev.clientY - longPressStart.y;
+        if(Math.hypot(dx, dy) > 8){
+          cancelLongPress();
+        }
+      });
+      el.addEventListener("pointerup", cancelLongPress);
+      el.addEventListener("pointercancel", cancelLongPress);
+
+      if(!fromDb){
+        upsertPinDoc(obj, true).catch(console.warn);
+      } else {
+        upsertPinDoc(obj, false).catch(()=>{});
+      }
+
+      return obj;
+    }
+
+    async function createPinAt(lng, lat, address=""){
+      if(LOCK_TO_CA && !isInCA(lng, lat)){
+        alert("That spot is outside California (CA lock is on).");
+        return;
+      }
+
+      const ok = await requireAuth();
+      if(!ok) return;
+
+      const u = currentUser();
+      const pin = {
+        id: pinIdFromLngLat(lng, lat),
+        lng, lat,
+        address: address || "",
+        title: "New Memory",
+        story: "",
+        category: "Other",
+        musicUrl: "",
+        ownerUid: u.uid,
+        ownerName: u.displayName || u.email || "",
+        ownerColor: colorFromUid(u.uid),
+        likeCount: 0
+      };
+
+      const p = addPinMarker(pin, false);
+      openModal(p);
+    }
+
+    async function deletePinNow(pin){
+      if(!pin) return;
+      const u = currentUser();
+      if(!u || u.uid !== pin.ownerUid){
+        alert("Only the pin owner can delete this pin.");
+        return;
+      }
+
+      try{
+        await deletePinEverywhere(pin);
+        try{ pin.marker?.remove(); } catch {}
+        pins.delete(pin.id);
+        if(activePin && activePin.id === pin.id) closeModal();
+      } catch(e){
+        console.error(e);
+        alert("Delete failed. Check Firestore/Storage rules.");
+      }
+    }
+
+    function closeDropdown(){
+      $("dropdown").classList.remove("open");
+      $("dropdown").innerHTML = "";
+    }
+
+    async function maptilerSearch(q){
+      const queryText = (q || "").trim();
+      if(queryText.length < 2){ closeDropdown(); return; }
+
+      const dd = $("dropdown");
+      dd.innerHTML = "";
+      dd.classList.add("open");
+
+      const head = document.createElement("div");
+      head.className = "dd-head";
+      head.innerHTML = `<div style="font-weight:900">Results</div><div class="muted">MapTiler</div>`;
+      dd.appendChild(head);
+
+      const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(queryText)}.json?key=${MAPTILER_KEY}&limit=6&country=us`;
+      let json;
+
+      try{
+        const res = await fetch(url);
+        if(!res.ok){
+          if(res.status === 403 || res.status === 401) showGeocodeBlocked(res.status);
+          dd.innerHTML = `<div style="padding:12px;color:var(--muted);font-weight:900">Search failed (${res.status})</div>`;
+          return;
+        }
+        json = await res.json();
+      } catch(e){
+        dd.innerHTML = `<div style="padding:12px;color:var(--muted);font-weight:900">Search failed (network)</div>`;
+        return;
+      }
+
+      const feats = json?.features || [];
+      if(!feats.length){
+        dd.innerHTML += `<div style="padding:12px;color:var(--muted);font-weight:900">No results</div>`;
+        return;
+      }
+
+      feats.forEach((f) => {
+        const place = f.place_name || f.text || "Result";
+        const center = f.center || [];
+        const lng = center[0], lat = center[1];
+        if(typeof lng !== "number" || typeof lat !== "number") return;
+
+        const row = document.createElement("div");
+        row.className = "dd-item";
+        row.innerHTML = `
+          <div class="dd-ico">📍</div>
+          <div style="min-width:0">
+            <div class="dd-title">${escapeHtml(f.text || place)}</div>
+            <div class="dd-sub">${escapeHtml(place)}</div>
+          </div>
+        `;
+        row.onclick = () => {
+          closeDropdown();
+          $("search").value = place;
+          $("clearSearch").classList.add("show");
+
+          map.flyTo({ center:[lng, lat], zoom: 16, speed: 1.15, curve: 1.4 });
+
+          const dd2 = $("dropdown");
+          dd2.innerHTML = "";
+          dd2.classList.add("open");
+          const h2 = document.createElement("div");
+          h2.className = "dd-head";
+          h2.innerHTML = `<div style="font-weight:900">Selected</div><div class="muted">Actions</div>`;
+          dd2.appendChild(h2);
+
+          const info = document.createElement("div");
+          info.className = "dd-item";
+          info.innerHTML = `
+            <div class="dd-ico">✅</div>
+            <div style="min-width:0">
+              <div class="dd-title">${escapeHtml(f.text || "Address")}</div>
+              <div class="dd-sub">${escapeHtml(place)}</div>
+            </div>
+          `;
+          dd2.appendChild(info);
+
+          const actions = document.createElement("div");
+          actions.className = "dd-actions";
+          const btnAdd = document.createElement("button");
+          btnAdd.className = "btn";
+          btnAdd.textContent = "📌 Add pin to this address";
+          btnAdd.onclick = async () => {
+            closeDropdown();
+            await createPinAt(lng, lat, place);
+          };
+          const btnClose = document.createElement("button");
+          btnClose.className = "btn ghost";
+          btnClose.textContent = "Close";
+          btnClose.onclick = closeDropdown;
+
+          actions.appendChild(btnAdd);
+          actions.appendChild(btnClose);
+          dd2.appendChild(actions);
+        };
+        dd.appendChild(row);
+      });
+    }
+
+    async function init(){
+      map = new maplibregl.Map({
+        container: "map",
+        style: STYLES.streets,
+        bounds: LOCK_TO_CA ? CA_BOUNDS : undefined,
+        fitBoundsOptions: LOCK_TO_CA ? { padding: 40, maxZoom: 12 } : undefined,
+        pitch: 45,
+        bearing: -15,
+        antialias: true
+      });
+
+      const canvas = map.getCanvas();
+      canvas.addEventListener("pointerdown", (ev) => {
+        if(ev.pointerType !== "touch") return;
+        if(!touchDoubleTapEnabled){
+          touchDoubleTapEnabled = true;
+          map.doubleClickZoom.disable();
+        }
+
+        const now = Date.now();
+        const tapPos = { x: ev.clientX, y: ev.clientY };
+        const nearLast = lastTapPos && Math.hypot(tapPos.x - lastTapPos.x, tapPos.y - lastTapPos.y) < 24;
+        if(now - lastTapTime < 300 && nearLast){
+          lastTapTime = 0;
+          lastTapPos = null;
+          cancelLongPress();
+          const lngLat = map.unproject([ev.clientX, ev.clientY]);
+          if(LOCK_TO_CA && !isInCA(lngLat.lng, lngLat.lat)) return;
+          longPressTriggered = true;
+          openCtxMenu(ev.clientX, ev.clientY, lngLat, null);
+          ev.preventDefault();
+          return;
+        }
+        lastTapTime = now;
+        lastTapPos = tapPos;
+
+        const lngLat = map.unproject([ev.clientX, ev.clientY]);
+        if(LOCK_TO_CA && !isInCA(lngLat.lng, lngLat.lat)) return;
+        startLongPress(ev, lngLat, null);
+      });
+      canvas.addEventListener("pointermove", (ev) => {
+        if(ev.pointerType !== "touch" || !longPressStart) return;
+        const dx = ev.clientX - longPressStart.x;
+        const dy = ev.clientY - longPressStart.y;
+        if(Math.hypot(dx, dy) > 8){
+          cancelLongPress();
+        }
+      });
+      canvas.addEventListener("pointerup", cancelLongPress);
+      canvas.addEventListener("pointercancel", cancelLongPress);
+
+      map.on("load", async () => {
+        applyBounds();
+
+        const all = await fetchAllPins().catch(()=>[]);
+        for (const p of all){
+          if(!p || typeof p.lng !== "number" || typeof p.lat !== "number") continue;
+          if(LOCK_TO_CA && !isInCA(p.lng, p.lat)) continue;
+          addPinMarker({
+            id: p.id || p.__id,
+            lng: p.lng,
+            lat: p.lat,
+            address: p.address || "",
+            title: p.title || "Memory",
+            story: p.story || "",
+            category: p.category || "Other",
+            musicUrl: p.musicUrl || "",
+            ownerUid: p.ownerUid || null,
+            ownerName: p.ownerName || "",
+            ownerColor: p.ownerColor || "#ffffff",
+            likeCount: p.likeCount || 0
+          }, true);
+        }
+
+        map.on("contextmenu", (e) => {
+          const { lng, lat } = e.lngLat;
+          if(LOCK_TO_CA && !isInCA(lng, lat)) return;
+          openCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, e.lngLat, null);
+        });
+
+        map.on("click", () => {
+          if(longPressTriggered){
+            longPressTriggered = false;
+            return;
+          }
+          closeCtxMenu();
+        });
+      });
+
+      map.on("style.load", () => applyBounds());
+
+      $("styleSel").addEventListener("change", (e) => setStyle(e.target.value));
+
+      $("search").addEventListener("input", debounce(() => {
+        const val = $("search").value.trim();
+        $("clearSearch").classList.toggle("show", !!val);
+        maptilerSearch(val);
+      }, 220));
+
+      $("btnSearch").onclick = () => maptilerSearch($("search").value);
+
+      $("clearSearch").onclick = () => {
+        $("search").value = "";
+        $("clearSearch").classList.remove("show");
+        closeDropdown();
+      };
+
+      $("btnLocate").onclick = () => {
+        if(!navigator.geolocation){
+          alert("Geolocation not supported.");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const lng = pos.coords.longitude;
+          const lat = pos.coords.latitude;
+          map.flyTo({ center:[lng, lat], zoom: 14, speed: 1.15, curve: 1.4 });
+        }, () => alert("Couldn’t get your location (permission denied?)."), { enableHighAccuracy:true, timeout:8000 });
+      };
+
+      $("btnHelp").onclick = () => {
+        alert(
+          "How to use:\n\n" +
+          "• Right-click (desktop) or long-press / double-tap (mobile) to add a pin.\n" +
+          "• Click a pin to open the memory modal.\n" +
+          "• Upload 1+ photos — gallery auto-cycles when there’s more than one.\n" +
+          "• Only the owner can edit/delete a pin."
+        );
+      };
+
+      $("ctxAddPin").onclick = async () => {
+        if(!ctxLngLat) return;
+        const { lng, lat } = ctxLngLat;
+        closeCtxMenu();
+        await createPinAt(lng, lat, "");
+      };
+
+      $("ctxDeletePin").onclick = async () => {
+        if(!ctxPinId) return;
+        const pin = pins.get(ctxPinId);
+        closeCtxMenu();
+        if(pin) await deletePinNow(pin);
+      };
+
+      $("ctxClose").onclick = closeCtxMenu;
+
+      $("pmClose").onclick = closeModal;
+      $("pinModal").addEventListener("click", (e) => {
+        if(e.target === $("pinModal")) closeModal();
+      });
+
+      $("prevBtn").onclick = () => {
+        if(activePhotos.length < 2) return;
+        activeIdx = (activeIdx - 1 + activePhotos.length) % activePhotos.length;
+        renderGallery();
+        startCycle();
+      };
+      $("nextBtn").onclick = () => {
+        if(activePhotos.length < 2) return;
+        activeIdx = (activeIdx + 1) % activePhotos.length;
+        renderGallery();
+        startCycle();
+      };
+
+      $("btnUpload").onclick = async () => {
+        if(!activePin) return;
+        const ok = await requireAuth();
+        if(!ok) return;
+        $("fileInput").click();
+      };
+
+      $("fileInput").addEventListener("change", async (e) => {
+        const files = Array.from(e.target.files || []);
+        if(!files.length || !activePin) return;
+
+        try{
+          $("btnUpload").disabled = true;
+          const caption = $("uploadCaption").value || "";
+          await uploadPhotos(activePin.id, files, caption);
+
+          $("fileInput").value = "";
+          $("uploadCaption").value = "";
+
+          activePhotos = await fetchPhotos(activePin.id);
+          activeIdx = 0;
+          renderGallery();
+          startCycle();
+        } catch(err){
+          console.error(err);
+          alert("Upload failed. Check Storage rules + sign-in.");
+        } finally {
+          updateAuthUI();
+        }
+      });
+
+      $("btnLike").onclick = async () => {
+        if(!activePin) return;
+        try{
+          await toggleLike(activePin.id);
+          await refreshEverything();
+        } catch(e){
+          console.error(e);
+          alert("Like failed. Sign in first.");
+        }
+      };
+
+      $("btnPostComment").onclick = async () => {
+        if(!activePin) return;
+        try{
+          await addComment(activePin.id, $("commentInput").value);
+          $("commentInput").value = "";
+          const comments = await fetchComments(activePin.id);
+          renderComments(comments);
+          $("rightScroll").scrollTo({ top: $("rightScroll").scrollHeight, behavior:"smooth" });
+        } catch(e){
+          console.error(e);
+          alert("Comment failed. Sign in first.");
+        }
+      };
+
+      $("btnEdit").onclick = () => setEditing(true);
+
+      $("btnCancelEdit").onclick = async () => {
+        setEditing(false);
+        await refreshEverything();
+      };
+
+      $("btnSave").onclick = async () => {
+        if(!activePin) return;
+        const u = currentUser();
+        if(!u || u.uid !== activePin.ownerUid) return;
+
+        const upd = {
+          category: $("pmCategory").value,
+          title: $("pmTitleInput").value.trim() || "Memory",
+          story: $("pmStory").value.trim(),
+          musicUrl: $("pmMusicUrl").value.trim()
+        };
+
+        try{
+          if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+          const { db, doc, updateDoc, serverTimestamp } = window.__fb;
+          await updateDoc(doc(db,
+
+Absolutely—here is the **full, complete `index.html`** (no placeholders). Paste this entire file into your `index.html`:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Our Story Map</title>
+
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card: rgba(15,27,51,.94);
+      --card2: rgba(0,0,0,.18);
+      --border: rgba(255,255,255,.12);
+      --text:#eaf1ff;
+      --muted:#9bb0d0;
+      --accent:#6aa7ff;
+      --danger:#ff6a7a;
+      --ok:#4ee6a8;
+      --shadow: 0 14px 40px rgba(0,0,0,.38);
+      --radius: 18px;
+      --pin-size: 18px;
+    }
+    *{box-sizing:border-box}
+    html, body {height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      overflow:hidden;
+    }
+    #map{position:fixed; inset:0; z-index:0}
+
+    /* ===== Top bar ===== */
+    .topbarWrap{
+      position:fixed; top:12px; left:12px; right:12px;
+      z-index:10; pointer-events:none;
+    }
+    .topbar{
+      pointer-events:auto;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      padding:10px 12px;
+      background: rgba(11,18,32,.58);
+      border:1px solid var(--border);
+      border-radius: 22px;
+      backdrop-filter: blur(14px);
+      box-shadow: var(--shadow);
+    }
+    .brand{
+      display:flex; gap:10px; align-items:center;
+      font-weight:900; letter-spacing:.2px;
+      white-space:nowrap; min-width: 170px;
+    }
+    .brand .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(106,167,255,.55);
+      flex:0 0 auto;
+    }
+    .brand .sub{color:var(--muted); font-weight:800; font-size:12px}
+
+    .controls{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      justify-content:flex-end; position:relative; width:100%;
+    }
+    .searchWrap{
+      position:relative; display:flex; align-items:center; gap:8px;
+      min-width: min(560px, 62vw);
+      max-width: min(820px, 72vw);
+      flex: 1 1 auto;
+    }
+    .searchGroup{position:relative; width:100%; display:flex; align-items:center; gap:8px;}
+    .search{
+      width:100%;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:11px 42px 11px 40px;
+      color: var(--text);
+      outline:none;
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .search:focus{ background: rgba(255,255,255,.13); border-color: rgba(106,167,255,.35); }
+    .searchIcon{
+      position:absolute; left:14px; top:50%;
+      transform: translateY(-50%);
+      opacity:.85; font-size:14px; pointer-events:none;
+    }
+    .clearBtn{
+      position:absolute; right:10px; top:50%;
+      transform: translateY(-50%);
+      border:none;
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 999px;
+      padding:6px 9px;
+      cursor:pointer;
+      display:none;
+    }
+    .clearBtn.show{display:block}
+
+    .select{
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      padding:10px 10px;
+      color: var(--text);
+      outline:none;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+    .btn{
+      border:1px solid rgba(255,255,255,.12);
+      background: var(--accent);
+      color:#071126;
+      font-weight:900;
+      padding:10px 12px;
+      border-radius: 999px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .btn.ghost{background: rgba(255,255,255,.10); color: var(--text); font-weight:800;}
+    .btn.danger{background: rgba(255,106,122,.18); color: var(--text); border-color: rgba(255,106,122,.35);}
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+    .btn:active{transform: translateY(1px)}
+
+    .userPill{border:1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.10); color: var(--text); padding:8px 10px; border-radius:999px; display:inline-flex; gap:8px; align-items:center; font-weight:900; cursor:pointer;}
+    .userPill .dot{width:8px;height:8px;border-radius:999px;background:#ff6a7a;box-shadow:0 0 10px rgba(255,106,122,.5);}
+    .userPill.online .dot{background:#4ee6a8; box-shadow:0 0 10px rgba(78,230,168,.5);}
+
+    /* ===== Dropdown Search results ===== */
+    .dropdown{
+      position:absolute; top:56px; right:0;
+      width:min(650px, 92vw);
+      background: rgba(15,27,51,.96);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      display:none;
+      z-index:11;
+      backdrop-filter: blur(12px);
+    }
+    .dropdown.open{display:block}
+    .dd-head{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+    }
+    .dd-head .muted{color:var(--muted); font-size:12px}
+    .dd-item{
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      cursor:pointer;
+      display:flex; gap:10px; align-items:flex-start;
+    }
+    .dd-item:hover{background: rgba(255,255,255,.06)}
+    .dd-ico{
+      width:30px; height:30px; border-radius:12px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      display:flex; align-items:center; justify-content:center;
+      flex:0 0 auto;
+      margin-top:1px;
+    }
+    .dd-title{font-weight:900; font-size:13px; line-height:1.2}
+    .dd-sub{color: var(--muted); font-size:12px; margin-top:2px}
+    .dd-actions{
+      display:flex; gap:8px; flex-wrap:wrap;
+      padding:10px 12px;
+      border-top:1px solid rgba(255,255,255,.08);
+    }
+
+    /* ===== Context menu ===== */
+    .ctx{
+      position:fixed; z-index:65;
+      display:none;
+      min-width: 230px;
+      background: rgba(15,27,51,.96);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      backdrop-filter: blur(10px);
+    }
+    .ctx.open{display:block}
+    .ctx .item{
+      padding:10px 12px;
+      cursor:pointer;
+      display:flex;align-items:center;gap:10px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-weight:900;
+    }
+    .ctx .item:last-child{border-bottom:0}
+    .ctx .item:hover{background: rgba(255,255,255,.06)}
+    .ctx .sub{font-weight:800;color:var(--muted);font-size:12px;margin-left:auto}
+
+    /* ===== Center modal ===== */
+    .modal{
+      position:fixed; inset:0;
+      z-index:80;
+      display:none;
+      background: rgba(0,0,0,.70);
+      backdrop-filter: blur(10px);
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+    }
+    .modal.open{display:flex}
+    .panel{
+      width:min(1040px, 96vw);
+      height:min(86vh, 920px);
+      overflow:hidden;
+      background: var(--card);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      display:flex;
+      flex-direction:column;
+    }
+    .panelHead{
+      padding:12px 14px;
+      border-bottom:1px solid rgba(255,255,255,.10);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex:0 0 auto;
+    }
+    .panelBody{
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1.35fr .95fr;
+      gap:12px;
+      overflow:hidden;
+      flex:1 1 auto;
+      min-height:0;
+    }
+
+    @media (max-width: 900px){
+      :root{--pin-size: 22px;}
+      .topbarWrap{top: max(8px, env(safe-area-inset-top)); left:8px; right:8px;}
+      .topbar{flex-wrap:wrap; gap:8px; padding:10px;}
+      .controls{width:100%; justify-content:space-between;}
+      .searchWrap{min-width:100%; max-width:100%;}
+      .search{padding:12px 42px 12px 38px;}
+      .btn, .select, .userPill{min-height:44px; padding:10px 12px;}
+      .dropdown{width: min(720px, 96vw); left:0; right:auto;}
+      .panel{height:min(94vh, 1100px)}
+      .panelBody{grid-template-columns:1fr; padding:10px;}
+      .gallery{padding:10px;}
+      .rightScroll{padding:10px;}
+      .stickyBar{padding:10px; position:static;}
+      .label{font-size:12px;}
+      .input, .textarea, .select2{font-size:14px;}
+    }
+
+    .card{
+      background: var(--card2);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius: 18px;
+      overflow:hidden;
+      min-height:0;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .leftScroll{overflow:auto; min-height:0; flex:1 1 auto;}
+    .gallery{display:flex; flex-direction:column; gap:10px; padding:12px;}
+    .stageWrap{border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.10); background: rgba(255,255,255,.06);}
+    .stage{position:relative; aspect-ratio:16/10; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,.06);}
+    .stage img{width:100%; height:100%; object-fit:contain; display:none;}
+    .stageBadge{position:absolute; left:10px; top:10px; background: rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.18); padding:6px 8px; border-radius:999px; font-size:11px; font-weight:900; max-width: 92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+    .emptyStage{color:rgba(255,255,255,.70); font-weight:900; padding:16px; text-align:center;}
+    .nav{position:absolute; inset:0; display:none; align-items:center; justify-content:space-between; padding:10px; pointer-events:none;}
+    .nav button{pointer-events:auto; width:40px;height:40px;border-radius:999px;border:0;cursor:pointer;font-weight:950;background: rgba(255,255,255,.92);color:#071126;}
+    .thumbs{display:grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap:8px;}
+    .thumb{position:relative; border-radius:14px; overflow:hidden; border:2px solid transparent; cursor:pointer; background: rgba(255,255,255,.06); aspect-ratio:1/1;}
+    .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+    .thumb.active{border-color: rgba(106,167,255,.85)}
+    .badge{position:absolute; left:8px; bottom:8px; background: rgba(0,0,0,.55); color:#fff; border:1px solid rgba(255,255,255,.18); padding:4px 7px; border-radius:999px; font-size:11px; font-weight:900; max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+    .stickyBar{
+      position:sticky;
+      bottom:0;
+      z-index:2;
+      background: rgba(11,18,32,.78);
+      border-top:1px solid rgba(255,255,255,.10);
+      backdrop-filter: blur(12px);
+      padding:12px;
+    }
+
+    .rightScroll{overflow:auto; min-height:0; flex:1 1 auto; padding:12px; display:flex; flex-direction:column; gap:10px;}
+
+    .label{font-size:12px;color:var(--muted);font-weight:850;}
+    .input, .textarea, .select2{
+      width:100%;
+      background: rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+      padding:10px 10px;
+      color: var(--text);
+      outline:none;
+      font-size:13px;
+    }
+    .textarea{min-height:110px; resize:vertical;}
+    .help{color:rgba(255,255,255,.75); font-size:12px; line-height:1.35;}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:7px 10px; border-radius: 999px; background: rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); font-weight:900; font-size:12px;}
+    .pill.ok{border-color: rgba(78,230,168,.35); background: rgba(78,230,168,.12);}
+    .pill.bad{border-color: rgba(255,106,122,.35); background: rgba(255,106,122,.12);}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:space-between;}
+    .rowL{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+    .rowR{display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end;}
+
+    .commentsWrap{border-top:1px solid rgba(255,255,255,.10); margin-top:8px; padding-top:10px; display:flex; flex-direction:column; gap:8px;}
+    .comment{padding:10px 10px; border:1px solid rgba(255,255,255,.10); background: rgba(0,0,0,.16); border-radius: 14px; display:flex; flex-direction:column; gap:4px;}
+    .comment .meta{font-size:12px;color:var(--muted);font-weight:850;}
+    .comment .txt{font-size:13px;color:var(--text);white-space:pre-wrap;}
+
+    .auth{position:fixed; inset:0; z-index:90; display:none; align-items:center; justify-content:center; padding:16px; background: rgba(0,0,0,.72); backdrop-filter: blur(10px);}
+    .auth.open{display:flex}
+    .auth-card{width:min(520px, 96vw); background: rgba(15,27,51,.96); border:1px solid rgba(255,255,255,.12); border-radius: 20px; box-shadow: var(--shadow); overflow:hidden;}
+    .auth-head{display:flex;align-items:center;justify-content:space-between;gap:10px; padding:12px 12px;border-bottom:1px solid rgba(255,255,255,.10)}
+    .auth-title{font-weight:900}
+    .auth-body{padding:12px;display:flex;flex-direction:column;gap:10px}
+    .auth-tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .auth-tab{border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: var(--text); padding:8px 10px;border-radius:999px;cursor:pointer;font-weight:900;font-size:12px;}
+    .auth-tab.active{ background: var(--accent); color:#071126; border-color: rgba(255,255,255,.16); }
+    .auth-error{color:#ffb3bb;font-size:12px;display:none}
+    .auth-error.show{display:block}
+
+    .maplibregl-ctrl-attrib{
+      background: rgba(15,27,51,.75) !important;
+      border: 1px solid rgba(255,255,255,.10) !important;
+      border-radius: 12px !important;
+      backdrop-filter: blur(10px);
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <div class="topbarWrap">
+    <div class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <span>Our Story Map</span>
+        <span class="sub">🌍</span>
+      </div>
+
+      <div class="controls">
+        <select id="styleSel" class="select" title="Map style">
+          <option value="streets">Streets</option>
+          <option value="satellite">Satellite</option>
+          <option value="hybrid">Satellite + Labels</option>
+        </select>
+
+        <div class="searchWrap">
+          <div class="searchGroup">
+            <span class="searchIcon">🔎</span>
+            <input id="search" class="search" type="text" placeholder="Search an address (ex: 123 Main St, Fresno CA)..." autocomplete="off" />
+            <button id="clearSearch" class="clearBtn" title="Clear">✕</button>
+          </div>
+
+          <button id="btnSearch" class="btn ghost" title="Search">Search</button>
+          <div id="dropdown" class="dropdown"></div>
+        </div>
+
+        <button id="btnLocate" class="btn ghost">Locate</button>
+        <button id="btnHelp" class="btn ghost">Help</button>
+        <button id="userPill" class="userPill" title="Account">
+          <span class="dot" id="userDot"></span>
+          <span id="userName">Sign in</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <div class="ctx" id="ctxMenu">
+    <div class="item" id="ctxAddPin">📌 Add a pin here <span class="sub">Map</span></div>
+    <div class="item" id="ctxDeletePin" style="display:none;">🗑️ Delete this pin <span class="sub">Owner</span></div>
+    <div class="item" id="ctxClose">✕ Close</div>
+  </div>
+
+  <!-- Pin Modal -->
+  <div class="modal" id="pinModal" aria-hidden="true">
+    <div class="panel">
+      <div class="panelHead">
+        <div class="panelTitle">
+          <div class="h1" id="pmTitle">Memory</div>
+          <div class="h2" id="pmSub">Address</div>
+        </div>
+        <div class="rowR">
+          <button class="btn ghost" id="pmFly">Fly to</button>
+          <button class="btn ghost" id="pmClose">✕</button>
+        </div>
+      </div>
+
+      <div class="panelBody">
+        <!-- LEFT -->
+        <div class="card">
+          <div class="leftScroll" id="leftScroll">
+            <div class="gallery">
+              <div class="stageWrap">
+                <div class="stage">
+                  <div class="emptyStage" id="stageEmpty">No photos yet. Upload one to start the story.</div>
+                  <img id="stageImg" alt="photo" />
+                  <div class="stageBadge" id="stageBadge" style="display:none;"></div>
+                  <div class="nav" id="stageNav">
+                    <button id="prevBtn">‹</button>
+                    <button id="nextBtn">›</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="thumbs" id="thumbs"></div>
+
+              <div class="help" id="photoMeta" style="margin-top:2px;"></div>
+            </div>
+
+            <div class="stickyBar">
+              <div class="row">
+                <div class="rowL">
+                  <span class="pill" id="authPill">Checking sign-in…</span>
+                  <span class="pill ok" id="ownerPill" style="display:none;">You own this pin</span>
+                </div>
+              </div>
+
+              <div style="height:10px"></div>
+
+              <div class="row">
+                <div style="min-width:240px">
+                  <div class="label">Upload photos</div>
+                  <div class="help">Pick 1+ photos. Gallery auto-cycles when there’s more than one.</div>
+                </div>
+                <div class="rowR">
+                  <button class="btn" id="btnUpload" disabled>Upload</button>
+                  <input id="fileInput" type="file" accept="image/*" multiple style="display:none" />
+                </div>
+              </div>
+
+              <div style="height:10px"></div>
+
+              <div class="label">Caption for this upload (optional)</div>
+              <input class="input" id="uploadCaption" placeholder="Ex: “This was the night we laughed for hours…”" disabled />
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card">
+          <div class="rightScroll" id="rightScroll">
+            <div>
+              <div class="label">Category</div>
+              <select class="select2" id="pmCategory" disabled>
+                <option value="First Date">First Date</option>
+                <option value="First Fight">First Fight</option>
+                <option value="Proposal">Proposal</option>
+                <option value="Future Memory">Future Memory</option>
+                <option value="Trip">Trip</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <div class="label">Title</div>
+              <input class="input" id="pmTitleInput" placeholder="Ex: Our first coffee ☕" disabled />
+            </div>
+
+            <div>
+              <div class="label">Story</div>
+              <textarea class="textarea" id="pmStory" placeholder="Write a short memory…" disabled></textarea>
+            </div>
+
+            <div>
+              <div class="label">Music link (YouTube / Spotify / Apple Music)</div>
+              <input class="input" id="pmMusicUrl" placeholder="Paste a link…" disabled />
+              <div style="height:10px"></div>
+              <div id="musicEmbed" class="card" style="background:rgba(0,0,0,.22); border-color:rgba(255,255,255,.10); display:none;">
+                <div style="padding:10px;">
+                  <div class="label" style="margin-bottom:8px;">Music</div>
+                  <div id="musicFrameWrap"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="label">Pin details</div>
+              <div class="rowR">
+                <button class="btn ghost" id="btnEdit" disabled>Edit</button>
+                <button class="btn" id="btnSave" disabled style="display:none;">Save</button>
+                <button class="btn ghost" id="btnCancelEdit" disabled style="display:none;">Cancel</button>
+              </div>
+            </div>
+
+            <div class="commentsWrap">
+              <div class="row">
+                <div class="label">Comments</div>
+                <div class="help" id="commentsHint">Sign in to comment.</div>
+              </div>
+
+              <div class="row">
+                <div class="rowL">
+                  <button class="btn ghost" id="btnLike" disabled>❤️ Like</button>
+                  <span class="pill" id="likeCountPill">0 likes</span>
+                </div>
+              </div>
+
+              <div class="row" style="gap:8px;">
+                <input class="input" id="commentInput" placeholder="Write a comment…" disabled />
+                <button class="btn" id="btnPostComment" disabled>Post</button>
+              </div>
+
+              <div id="commentsList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth modal -->
+  <div class="auth" id="authModal" aria-hidden="true">
+    <div class="auth-card">
+      <div class="auth-head">
+        <div class="auth-title">Sign in</div>
+        <button class="btn ghost" id="authClose">✕</button>
+      </div>
+      <div class="auth-body">
+        <div class="help">
+          You need an account to add pins, upload photos, like, comment, and edit your pins.
+        </div>
+
+        <div id="authSignedIn" class="card" style="padding:10px; display:none;">
+          <div class="row" style="justify-content:space-between;">
+            <div class="help">Signed in as <b id="authUserName">you</b></div>
+            <button class="btn ghost" id="authSignOut">Sign out</button>
+          </div>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tabSignIn">Sign in</button>
+          <button class="auth-tab" id="tabCreate">Create account</button>
+        </div>
+
+        <div class="auth-error" id="authErr"></div>
+
+        <input class="input" id="authEmail" type="email" placeholder="Email" autocomplete="email" />
+        <input class="input" id="authPass" type="password" placeholder="Password" autocomplete="current-password" />
+
+        <div class="row" style="justify-content:flex-end;">
+          <button class="btn ghost" id="btnGoogle">Continue with Google</button>
+          <button class="btn" id="btnEmailAction">Sign in</button>
+        </div>
+
+        <div class="help">
+          If email/password fails, enable <b>Email/Password</b> in Firebase Authentication → Sign-in method.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+
+  <!-- ================= Firebase ================= -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut,
+      onAuthStateChanged,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      orderBy,
+      serverTimestamp,
+      runTransaction
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import {
+      getStorage,
+      ref,
+      uploadBytes,
+      getDownloadURL,
+      deleteObject,
+      listAll
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyArJ2PR7-YJpjtlsVnZaCUNireuVpdq6ZE",
+      authDomain: "the-map-f43ff.firebaseapp.com",
+      projectId: "the-map-f43ff",
+      storageBucket: "the-map-f43ff.firebasestorage.app",
+      messagingSenderId: "110766323620",
+      appId: "1:110766323620:web:e3b0a9b995c088d12e7331",
+      measurementId: "G-CYEC068G15"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+    const provider = new GoogleAuthProvider();
+
+    window.__fb = {
+      auth, db, storage, provider,
+      signInWithPopup, signOut, onAuthStateChanged,
+      createUserWithEmailAndPassword, signInWithEmailAndPassword,
+      doc, setDoc, getDoc, updateDoc, deleteDoc,
+      collection, addDoc, getDocs, query, orderBy, serverTimestamp,
+      runTransaction,
+      ref, uploadBytes, getDownloadURL, deleteObject, listAll
+    };
+  </script>
+
+  <!-- ================= App Script ================= -->
+  <script>
+    const MAPTILER_KEY = "GFG1w5G5FvDB4k9dRW1U";
+
+    const STYLES = {
+      streets:   `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+      satellite: `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`,
+      hybrid:    `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`
+    };
+
+    const CA_BOUNDS = [
+      [-124.482003, 32.528832],
+      [-114.131211, 42.009518]
+    ];
+    const LOCK_TO_CA = true;
+
+    const $ = (id) => document.getElementById(id);
+    const debounce = (fn, ms=250) => { let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), ms); }; };
+
+    function escapeHtml(s){
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+    }
+
+    function isInCA(lng, lat){
+      return (
+        lng >= CA_BOUNDS[0][0] && lng <= CA_BOUNDS[1][0] &&
+        lat >= CA_BOUNDS[0][1] && lat <= CA_BOUNDS[1][1]
+      );
+    }
+
+    function showGeocodeBlocked(status){
+      alert(
+        `Geocoding blocked (${status}). Fix in MapTiler:\n\n` +
+        `Key → Allowed HTTP Origins must be EXACTLY one of:\n` +
+        `• oscarxvera.github.io\n` +
+        `OR\n` +
+        `• https://oscarxvera.github.io\n\n` +
+        `No paths, no duplicates.`
+      );
+    }
+
+    async function ensureFirebaseReady(){
+      const maxMs = 8000;
+      const start = Date.now();
+      while(!window.__fb){
+        if(Date.now() - start > maxMs) break;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return !!window.__fb;
+    }
+
+    function currentUser(){ return window.__fb?.auth?.currentUser || null; }
+
+    function colorFromUid(uid){
+      if(!uid) return "#ffffff";
+      let hash = 0;
+      for (let i=0;i<uid.length;i++) { hash = ((hash<<5)-hash) + uid.charCodeAt(i); hash |= 0; }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue} 85% 62%)`;
+    }
+
+    function markerEl(color){
+      const size = getComputedStyle(document.documentElement).getPropertyValue("--pin-size").trim() || "18px";
+      const el = document.createElement("div");
+      el.style.width = size;
+      el.style.height = size;
+      el.style.borderRadius = "999px";
+      el.style.background = color || "#ffffff";
+      el.style.border = "2px solid rgba(255,255,255,.95)";
+      el.style.boxShadow = "0 10px 22px rgba(0,0,0,.35)";
+      el.style.cursor = "pointer";
+      return el;
+    }
+
+    function pinIdFromLngLat(lng, lat){
+      return `pin_${lng.toFixed(5)}_${lat.toFixed(5)}`
+        .replaceAll(".", "_")
+        .replaceAll("-", "m");
+    }
+
+    function toSafeFilename(name){
+      return String(name || "photo")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")
+        .slice(0, 60) || "photo";
+    }
+
+    function musicEmbedHTML(url){
+      const u = String(url || "").trim();
+      if(!u) return "";
+
+      const ytMatch =
+        u.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/) ||
+        u.match(/youtu\.be\/([a-zA-Z0-9_-]+)/) ||
+        u.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+      if(ytMatch){
+        const id = ytMatch[1];
+        return `<iframe width="100%" height="240" style="border:0;border-radius:14px;overflow:hidden"
+          src="https://www.youtube.com/embed/${id}"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>`;
+      }
+
+      if(u.includes("open.spotify.com/")){
+        const embed = u.replace("open.spotify.com", "open.spotify.com/embed");
+        return `<iframe style="border-radius:14px" src="${embed}" width="100%" height="152" frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+      }
+
+      if(u.includes("music.apple.com/")){
+        return `<iframe allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write" frameborder="0"
+          height="175" style="width:100%;max-width:100%;overflow:hidden;border-radius:14px"
+          sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+          src="${u}"></iframe>`;
+      }
+
+      return `<div class="help">Unsupported link type. It will show as a link:</div>
+              <a href="${u}" target="_blank" rel="noopener" style="color:var(--accent); font-weight:900;">Open music</a>`;
+    }
+
+    async function upsertPinDoc(pin, isNew=false){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const { db, doc, setDoc, serverTimestamp } = window.__fb;
+
+      const payload = {
+        id: pin.id,
+        title: pin.title || "Memory",
+        story: pin.story || "",
+        category: pin.category || "Other",
+        musicUrl: pin.musicUrl || "",
+        address: pin.address || "",
+        lng: pin.lng,
+        lat: pin.lat,
+        ownerUid: pin.ownerUid || null,
+        ownerName: pin.ownerName || "",
+        ownerColor: pin.ownerColor || "#ffffff",
+        likeCount: typeof pin.likeCount === "number" ? pin.likeCount : 0,
+        updatedAt: serverTimestamp()
+      };
+      if(isNew) payload.createdAt = serverTimestamp();
+
+      await setDoc(doc(db, "pins", pin.id), payload, { merge:true });
+    }
+
+    async function fetchAllPins(){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs } = window.__fb;
+      const snap = await getDocs(collection(db, "pins"));
+      return snap.docs.map(d => ({ ...d.data(), __id: d.id }));
+    }
+
+    async function fetchPin(pinId){
+      if(!await ensureFirebaseReady()) return null;
+      const { db, doc, getDoc } = window.__fb;
+      const s = await getDoc(doc(db, "pins", pinId));
+      return s.exists() ? s.data() : null;
+    }
+
+    async function fetchPhotos(pinId){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs, query, orderBy } = window.__fb;
+      const col = collection(db, "pins", pinId, "photos");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
+    }
+
+    async function fetchComments(pinId){
+      if(!await ensureFirebaseReady()) return [];
+      const { db, collection, getDocs, query, orderBy } = window.__fb;
+      const col = collection(db, "pins", pinId, "comments");
+      const q = query(col, orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      return snap.docs.map(d => ({ ...d.data(), __docId: d.id }));
+    }
+
+    async function uploadPhotos(pinId, files, caption){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+
+      const { storage, ref, uploadBytes, getDownloadURL, db, collection, addDoc, serverTimestamp } = window.__fb;
+      const out = [];
+
+      for (const file of files){
+        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+        const safe = toSafeFilename(file.name);
+        const path = `pins/${pinId}/${Date.now()}_${Math.random().toString(16).slice(2)}_${safe}.${ext}`;
+        const sRef = ref(storage, path);
+
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+
+        await addDoc(collection(db, "pins", pinId, "photos"), {
+          url,
+          storagePath: path,
+          uploadedByUid: user.uid,
+          uploadedByName: user.displayName || user.email || "Unknown",
+          caption: (caption || "").trim(),
+          createdAt: serverTimestamp()
+        });
+
+        out.push(url);
+      }
+      return out;
+    }
+
+    async function addComment(pinId, text){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+      const { db, collection, addDoc, serverTimestamp } = window.__fb;
+
+      const t = (text || "").trim();
+      if(!t) return;
+
+      await addDoc(collection(db, "pins", pinId, "comments"), {
+        uid: user.uid,
+        name: user.displayName || user.email || "Unknown",
+        text: t,
+        createdAt: serverTimestamp()
+      });
+    }
+
+    async function toggleLike(pinId){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+
+      const { db, doc, getDoc, runTransaction, serverTimestamp } = window.__fb;
+      const likeRef = doc(db, "pins", pinId, "likes", user.uid);
+      const likeSnap = await getDoc(likeRef);
+
+      await runTransaction(db, async (tx) => {
+        const pinRef = doc(db, "pins", pinId);
+        const pinSnap = await tx.get(pinRef);
+        const current = pinSnap.exists() ? (pinSnap.data().likeCount || 0) : 0;
+
+        if(likeSnap.exists()){
+          tx.update(pinRef, { likeCount: Math.max(0, current - 1) });
+          tx.delete(likeRef);
+        } else {
+          tx.update(pinRef, { likeCount: current + 1 });
+          tx.set(likeRef, {
+            uid: user.uid,
+            name: user.displayName || user.email || "Unknown",
+            createdAt: serverTimestamp()
+          });
+        }
+      });
+
+      return !likeSnap.exists();
+    }
+
+    async function isLikedByMe(pinId){
+      if(!await ensureFirebaseReady()) return false;
+      const user = currentUser();
+      if(!user) return false;
+      const { db, doc, getDoc } = window.__fb;
+      const s = await getDoc(doc(db, "pins", pinId, "likes", user.uid));
+      return s.exists();
+    }
+
+    async function deletePinEverywhere(pin){
+      if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+      const user = currentUser();
+      if(!user) throw new Error("Not signed in");
+      if(pin.ownerUid !== user.uid) throw new Error("Not owner");
+
+      const { db, doc, deleteDoc, storage, ref, deleteObject, listAll, collection, getDocs } = window.__fb;
+
+      try{
+        const folderRef = ref(storage, `pins/${pin.id}`);
+        const listing = await listAll(folderRef);
+        for (const item of listing.items){
+          try{ await deleteObject(item); } catch(e){ console.warn("delete storage item failed", e); }
+        }
+      } catch(e){ console.warn("listAll failed (ok):", e); }
+
+      const subcols = ["photos","comments","likes"];
+      for (const sub of subcols){
+        try{
+          const snap = await getDocs(collection(db, "pins", pin.id, sub));
+          for (const d of snap.docs){
+            try{ await deleteDoc(d.ref); } catch(e){}
+          }
+        } catch(e){}
+      }
+
+      await deleteDoc(doc(db, "pins", pin.id));
+    }
+
+    // ===== Auth modal logic =====
+    let authMode = "signin";
+    let authResolve = null;
+
+    function showAuthError(msg){
+      const el = $("authErr");
+      el.textContent = msg || "Something went wrong.";
+      el.classList.add("show");
+    }
+    function hideAuthError(){
+      const el = $("authErr");
+      el.textContent = "";
+      el.classList.remove("show");
+    }
+    function setAuthMode(mode){
+      authMode = mode;
+      $("tabSignIn").classList.toggle("active", mode === "signin");
+      $("tabCreate").classList.toggle("active", mode === "create");
+      $("btnEmailAction").textContent = mode === "signin" ? "Sign in" : "Create account";
+      $("authPass").setAttribute("autocomplete", mode === "signin" ? "current-password" : "new-password");
+      hideAuthError();
+    }
+    function openAuthModal(){
+      $("authModal").classList.add("open");
+      $("authModal").setAttribute("aria-hidden","false");
+      setAuthMode("signin");
+      $("authEmail").focus();
+      return new Promise((resolve)=>{ authResolve = resolve; });
+    }
+    function closeAuthModal(ok=false){
+      $("authModal").classList.remove("open");
+      $("authModal").setAttribute("aria-hidden","true");
+      hideAuthError();
+      if(authResolve){ authResolve(ok); authResolve = null; }
+    }
+    async function requireAuth(){
+      if(!await ensureFirebaseReady()){
+        alert("Firebase not configured yet.");
+        return false;
+      }
+      if(currentUser()) return true;
+      const ok = await openAuthModal();
+      return !!ok && !!currentUser();
+    }
+
+    // ===== Context menu =====
+    let ctxLngLat = null;
+    let ctxPinId = null;
+    let longPressTimer = null;
+    let longPressMoved = false;
+    let longPressTriggered = false;
+    let longPressStart = null;
+    let lastTapTime = 0;
+    let lastTapPos = null;
+    let touchDoubleTapEnabled = false;
+
+    function openCtxMenu(x, y, lngLat, pinId=null){
+      ctxLngLat = lngLat;
+      ctxPinId = pinId;
+
+      const menu = $("ctxMenu");
+      menu.style.left = `${Math.min(x, window.innerWidth - 250)}px`;
+      menu.style.top  = `${Math.min(y, window.innerHeight - 160)}px`;
+
+      const del = $("ctxDeletePin");
+      del.style.display = "none";
+      if(pinId){
+        const p = pins.get(pinId);
+        const u = currentUser();
+        if(p && u && p.ownerUid === u.uid) del.style.display = "flex";
+      }
+
+      menu.classList.add("open");
+    }
+    function closeCtxMenu(){
+      $("ctxMenu").classList.remove("open");
+      ctxLngLat = null;
+      ctxPinId = null;
+    }
+
+    function startLongPress(ev, lngLat, pinId=null){
+      if(ev.pointerType !== "touch") return;
+      longPressMoved = false;
+      longPressStart = { x: ev.clientX, y: ev.clientY };
+      longPressTimer = setTimeout(() => {
+        longPressTriggered = true;
+        openCtxMenu(ev.clientX, ev.clientY, lngLat, pinId);
+      }, 550);
+    }
+    function cancelLongPress(){
+      if(longPressTimer){
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+      longPressStart = null;
+    }
+
+    // ===== Map + pins =====
+    let map;
+    const pins = new Map();
+
+    function applyBounds(){
+      if(!LOCK_TO_CA) return;
+      map.setMaxBounds(CA_BOUNDS);
+      map.setMinZoom(5);
+      map.setMaxZoom(20);
+    }
+
+    function setStyle(key){
+      const url = STYLES[key] || STYLES.streets;
+      map.setStyle(url);
+    }
+
+    // ===== Modal state =====
+    let activePin = null;
+    let activePhotos = [];
+    let activeIdx = 0;
+    let cycleTimer = null;
+    let isEditing = false;
+
+    function stopCycle(){
+      if(cycleTimer){ clearInterval(cycleTimer); cycleTimer = null; }
+    }
+    function startCycle(){
+      stopCycle();
+      if(activePhotos.length < 2) return;
+      cycleTimer = setInterval(() => {
+        activeIdx = (activeIdx + 1) % activePhotos.length;
+        renderGallery();
+      }, 3500);
+    }
+
+    function openModal(pin){
+      activePin = pin;
+      isEditing = false;
+
+      $("pinModal").classList.add("open");
+      $("pinModal").setAttribute("aria-hidden","false");
+
+      $("pmTitle").textContent = pin.title || "Memory";
+      $("pmSub").textContent = pin.address || `${pin.lng.toFixed(5)}, ${pin.lat.toFixed(5)}`;
+
+      $("pmCategory").value = pin.category || "Other";
+      $("pmTitleInput").value = pin.title || "Memory";
+      $("pmStory").value = pin.story || "";
+      $("pmMusicUrl").value = pin.musicUrl || "";
+      renderMusic(pin.musicUrl || "");
+
+      $("commentsList").innerHTML = "";
+      $("commentInput").value = "";
+
+      $("pmFly").onclick = () => {
+        map.flyTo({ center:[pin.lng, pin.lat], zoom: 17, speed: 1.2, curve: 1.4 });
+      };
+
+      updateAuthUI();
+      refreshEverything().catch(console.error);
+    }
+
+    function closeModal(){
+      stopCycle();
+      activePin = null;
+      activePhotos = [];
+      activeIdx = 0;
+      isEditing = false;
+
+      $("pinModal").classList.remove("open");
+      $("pinModal").setAttribute("aria-hidden","true");
+    }
+
+    function renderMusic(url){
+      const html = musicEmbedHTML(url);
+      const wrap = $("musicFrameWrap");
+      const box = $("musicEmbed");
+      wrap.innerHTML = html || "";
+      box.style.display = html ? "block" : "none";
+    }
+
+    function setEditing(on){
+      isEditing = !!on;
+      const canEdit = !!currentUser() && activePin && currentUser().uid === activePin.ownerUid;
+
+      ["pmCategory","pmTitleInput","pmStory","pmMusicUrl"].forEach((f) => {
+        $(f).disabled = !(on && canEdit);
+      });
+
+      $("btnSave").style.display = on ? "inline-flex" : "none";
+      $("btnCancelEdit").style.display = on ? "inline-flex" : "none";
+      $("btnEdit").style.display = on ? "none" : "inline-flex";
+    }
+
+    function updateAuthUI(){
+      const u = currentUser();
+      const authed = !!u;
+
+      $("btnUpload").disabled = !authed || !activePin;
+      $("uploadCaption").disabled = !authed || !activePin;
+
+      $("btnLike").disabled = !authed || !activePin;
+      $("commentInput").disabled = !authed || !activePin;
+      $("btnPostComment").disabled = !authed || !activePin;
+
+      const owner = !!u && !!activePin && u.uid === activePin.ownerUid;
+      $("btnEdit").disabled = !owner;
+      $("btnSave").disabled = !owner;
+      $("btnCancelEdit").disabled = !owner;
+
+      $("ownerPill").style.display = owner ? "inline-flex" : "none";
+
+      $("authPill").textContent = authed ? `Signed in as ${u.displayName || u.email}` : "Not signed in";
+      $("authPill").classList.toggle("ok", authed);
+      $("authPill").classList.toggle("bad", !authed);
+
+      $("commentsHint").textContent = authed ? "" : "Sign in to comment.";
+
+      $("userName").textContent = authed ? (u.displayName || u.email || "Signed in") : "Sign in";
+      $("userPill").classList.toggle("online", authed);
+
+      $("authSignedIn").style.display = authed ? "block" : "none";
+      $("authUserName").textContent = authed ? (u.displayName || u.email || "Signed in") : "";
+    }
+
+    function renderGallery(){
+      const empty = $("stageEmpty");
+      const img = $("stageImg");
+      const nav = $("stageNav");
+      const thumbs = $("thumbs");
+      const meta = $("photoMeta");
+      const badge = $("stageBadge");
+
+      if(!activePhotos.length){
+        empty.style.display = "block";
+        img.style.display = "none";
+        nav.style.display = "none";
+        badge.style.display = "none";
+        thumbs.innerHTML = "";
+        meta.textContent = "";
+        return;
+      }
+
+      empty.style.display = "none";
+      img.style.display = "block";
+
+      activeIdx = Math.max(0, Math.min(activeIdx, activePhotos.length - 1));
+      const p = activePhotos[activeIdx];
+
+      img.src = p.url;
+      const whoText = p.uploadedByName ? `Uploaded by ${p.uploadedByName}` : "Uploaded";
+      badge.textContent = whoText;
+      badge.style.display = "inline-flex";
+
+      nav.style.display = activePhotos.length > 1 ? "flex" : "none";
+
+      thumbs.innerHTML = "";
+      activePhotos.forEach((ph, i) => {
+        const t = document.createElement("div");
+        t.className = "thumb" + (i === activeIdx ? " active" : "");
+        const im = document.createElement("img");
+        im.src = ph.url;
+        t.appendChild(im);
+
+        const b = document.createElement("div");
+        b.className = "badge";
+        b.textContent = ph.uploadedByName ? `by ${ph.uploadedByName}` : "uploaded";
+        t.appendChild(b);
+
+        t.onclick = () => {
+          activeIdx = i;
+          renderGallery();
+          startCycle();
+        };
+        thumbs.appendChild(t);
+      });
+
+      const cap = (p.caption || "").trim();
+      meta.textContent = cap ? `${whoText} • “${cap}”` : whoText;
+    }
+
+    function renderComments(list){
+      const wrap = $("commentsList");
+      wrap.innerHTML = "";
+      for (const c of list){
+        const div = document.createElement("div");
+        div.className = "comment";
+        const dt = c.createdAt?.toDate ? c.createdAt.toDate() : null;
+        const when = dt ? dt.toLocaleString() : "";
+        div.innerHTML = `
+          <div class="meta">${escapeHtml(c.name || "Unknown")}${when ? " • " + escapeHtml(when) : ""}</div>
+          <div class="txt">${escapeHtml(c.text || "")}</div>
+        `;
+        wrap.appendChild(div);
+      }
+    }
+
+    async function refreshEverything(){
+      if(!activePin) return;
+
+      const fresh = await fetchPin(activePin.id);
+      if(fresh){
+        Object.assign(activePin, fresh);
+
+        $("pmTitle").textContent = fresh.title || "Memory";
+        $("pmSub").textContent = fresh.address || `${fresh.lng?.toFixed?.(5)}, ${fresh.lat?.toFixed?.(5)}`;
+        if(!isEditing){
+          $("pmCategory").value = fresh.category || "Other";
+          $("pmTitleInput").value = fresh.title || "Memory";
+          $("pmStory").value = fresh.story || "";
+          $("pmMusicUrl").value = fresh.musicUrl || "";
+          renderMusic(fresh.musicUrl || "");
+        }
+        $("likeCountPill").textContent = `${fresh.likeCount || 0} likes`;
+      } else {
+        $("likeCountPill").textContent = "0 likes";
+      }
+
+      activePhotos = await fetchPhotos(activePin.id);
+      activeIdx = 0;
+      renderGallery();
+      startCycle();
+
+      const comments = await fetchComments(activePin.id);
+      renderComments(comments);
+
+      const liked = await isLikedByMe(activePin.id);
+      $("btnLike").textContent = liked ? "💔 Unlike" : "❤️ Like";
+
+      updateAuthUI();
+      setEditing(false);
+    }
+
+    function addPinMarker(pin, fromDb=false){
+      if(pins.has(pin.id)) return pins.get(pin.id);
+
+      const el = markerEl(pin.ownerColor || "#ffffff");
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([pin.lng, pin.lat])
+        .addTo(map);
+
+      const obj = { ...pin, marker };
+      pins.set(pin.id, obj);
+
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        openModal(obj);
+      });
+
+      el.addEventListener("contextmenu", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        openCtxMenu(ev.clientX, ev.clientY, { lng: obj.lng, lat: obj.lat }, obj.id);
+      });
+
+      el.addEventListener("pointerdown", (ev) => {
+        if(ev.pointerType !== "touch") return;
+        startLongPress(ev, { lng: obj.lng, lat: obj.lat }, obj.id);
+      });
+      el.addEventListener("pointermove", (ev) => {
+        if(ev.pointerType !== "touch" || !longPressStart) return;
+        const dx = ev.clientX - longPressStart.x;
+        const dy = ev.clientY - longPressStart.y;
+        if(Math.hypot(dx, dy) > 8){
+          longPressMoved = true;
+          cancelLongPress();
+        }
+      });
+      el.addEventListener("pointerup", cancelLongPress);
+      el.addEventListener("pointercancel", cancelLongPress);
+
+      if(!fromDb){
+        upsertPinDoc(obj, true).catch(console.warn);
+      } else {
+        upsertPinDoc(obj, false).catch(()=>{});
+      }
+
+      return obj;
+    }
+
+    async function createPinAt(lng, lat, address=""){
+      if(LOCK_TO_CA && !isInCA(lng, lat)){
+        alert("That spot is outside California (CA lock is on).");
+        return;
+      }
+
+      const ok = await requireAuth();
+      if(!ok) return;
+
+      const u = currentUser();
+      const pin = {
+        id: pinIdFromLngLat(lng, lat),
+        lng, lat,
+        address: address || "",
+        title: "New Memory",
+        story: "",
+        category: "Other",
+        musicUrl: "",
+        ownerUid: u.uid,
+        ownerName: u.displayName || u.email || "",
+        ownerColor: colorFromUid(u.uid),
+        likeCount: 0
+      };
+
+      const p = addPinMarker(pin, false);
+      openModal(p);
+    }
+
+    async function deletePinNow(pin){
+      if(!pin) return;
+      const u = currentUser();
+      if(!u || u.uid !== pin.ownerUid){
+        alert("Only the pin owner can delete this pin.");
+        return;
+      }
+
+      try{
+        await deletePinEverywhere(pin);
+        try{ pin.marker?.remove(); } catch {}
+        pins.delete(pin.id);
+        if(activePin && activePin.id === pin.id) closeModal();
+      } catch(e){
+        console.error(e);
+        alert("Delete failed. Check Firestore/Storage rules.");
+      }
+    }
+
+    function closeDropdown(){
+      $("dropdown").classList.remove("open");
+      $("dropdown").innerHTML = "";
+    }
+
+    async function maptilerSearch(q){
+      const queryText = (q || "").trim();
+      if(queryText.length < 2){ closeDropdown(); return; }
+
+      const dd = $("dropdown");
+      dd.innerHTML = "";
+      dd.classList.add("open");
+
+      const head = document.createElement("div");
+      head.className = "dd-head";
+      head.innerHTML = `<div style="font-weight:900">Results</div><div class="muted">MapTiler</div>`;
+      dd.appendChild(head);
+
+      const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(queryText)}.json?key=${MAPTILER_KEY}&limit=6&country=us`;
+      let json;
+
+      try{
+        const res = await fetch(url);
+        if(!res.ok){
+          if(res.status === 403 || res.status === 401) showGeocodeBlocked(res.status);
+          dd.innerHTML = `<div style="padding:12px;color:var(--muted);font-weight:900">Search failed (${res.status})</div>`;
+          return;
+        }
+        json = await res.json();
+      } catch(e){
+        dd.innerHTML = `<div style="padding:12px;color:var(--muted);font-weight:900">Search failed (network)</div>`;
+        return;
+      }
+
+      const feats = json?.features || [];
+      if(!feats.length){
+        dd.innerHTML += `<div style="padding:12px;color:var(--muted);font-weight:900">No results</div>`;
+        return;
+      }
+
+      feats.forEach((f) => {
+        const place = f.place_name || f.text || "Result";
+        const center = f.center || [];
+        const lng = center[0], lat = center[1];
+        if(typeof lng !== "number" || typeof lat !== "number") return;
+
+        const row = document.createElement("div");
+        row.className = "dd-item";
+        row.innerHTML = `
+          <div class="dd-ico">📍</div>
+          <div style="min-width:0">
+            <div class="dd-title">${escapeHtml(f.text || place)}</div>
+            <div class="dd-sub">${escapeHtml(place)}</div>
+          </div>
+        `;
+        row.onclick = () => {
+          closeDropdown();
+          $("search").value = place;
+          $("clearSearch").classList.add("show");
+
+          map.flyTo({ center:[lng, lat], zoom: 16, speed: 1.15, curve: 1.4 });
+
+          const dd2 = $("dropdown");
+          dd2.innerHTML = "";
+          dd2.classList.add("open");
+          const h2 = document.createElement("div");
+          h2.className = "dd-head";
+          h2.innerHTML = `<div style="font-weight:900">Selected</div><div class="muted">Actions</div>`;
+          dd2.appendChild(h2);
+
+          const info = document.createElement("div");
+          info.className = "dd-item";
+          info.innerHTML = `
+            <div class="dd-ico">✅</div>
+            <div style="min-width:0">
+              <div class="dd-title">${escapeHtml(f.text || "Address")}</div>
+              <div class="dd-sub">${escapeHtml(place)}</div>
+            </div>
+          `;
+          dd2.appendChild(info);
+
+          const actions = document.createElement("div");
+          actions.className = "dd-actions";
+          const btnAdd = document.createElement("button");
+          btnAdd.className = "btn";
+          btnAdd.textContent = "📌 Add pin to this address";
+          btnAdd.onclick = async () => {
+            closeDropdown();
+            await createPinAt(lng, lat, place);
+          };
+          const btnClose = document.createElement("button");
+          btnClose.className = "btn ghost";
+          btnClose.textContent = "Close";
+          btnClose.onclick = closeDropdown;
+
+          actions.appendChild(btnAdd);
+          actions.appendChild(btnClose);
+          dd2.appendChild(actions);
+        };
+        dd.appendChild(row);
+      });
+    }
+
+    async function init(){
+      map = new maplibregl.Map({
+        container: "map",
+        style: STYLES.streets,
+        bounds: LOCK_TO_CA ? CA_BOUNDS : undefined,
+        fitBoundsOptions: LOCK_TO_CA ? { padding: 40, maxZoom: 12 } : undefined,
+        pitch: 45,
+        bearing: -15,
+        antialias: true
+      });
+
+      const canvas = map.getCanvas();
+      canvas.addEventListener("pointerdown", (ev) => {
+        if(ev.pointerType !== "touch") return;
+        if(!touchDoubleTapEnabled){
+          touchDoubleTapEnabled = true;
+          map.doubleClickZoom.disable();
+        }
+
+        const now = Date.now();
+        const tapPos = { x: ev.clientX, y: ev.clientY };
+        const nearLast = lastTapPos && Math.hypot(tapPos.x - lastTapPos.x, tapPos.y - lastTapPos.y) < 24;
+        if(now - lastTapTime < 300 && nearLast){
+          lastTapTime = 0;
+          lastTapPos = null;
+          cancelLongPress();
+          const lngLat = map.unproject([ev.clientX, ev.clientY]);
+          if(LOCK_TO_CA && !isInCA(lngLat.lng, lngLat.lat)) return;
+          longPressTriggered = true;
+          openCtxMenu(ev.clientX, ev.clientY, lngLat, null);
+          ev.preventDefault();
+          return;
+        }
+        lastTapTime = now;
+        lastTapPos = tapPos;
+
+        const lngLat = map.unproject([ev.clientX, ev.clientY]);
+        if(LOCK_TO_CA && !isInCA(lngLat.lng, lngLat.lat)) return;
+        startLongPress(ev, lngLat, null);
+      });
+      canvas.addEventListener("pointermove", (ev) => {
+        if(ev.pointerType !== "touch" || !longPressStart) return;
+        const dx = ev.clientX - longPressStart.x;
+        const dy = ev.clientY - longPressStart.y;
+        if(Math.hypot(dx, dy) > 8){
+          longPressMoved = true;
+          cancelLongPress();
+        }
+      });
+      canvas.addEventListener("pointerup", cancelLongPress);
+      canvas.addEventListener("pointercancel", cancelLongPress);
+
+      map.on("load", async () => {
+        applyBounds();
+
+        const all = await fetchAllPins().catch(()=>[]);
+        for (const p of all){
+          if(!p || typeof p.lng !== "number" || typeof p.lat !== "number") continue;
+          if(LOCK_TO_CA && !isInCA(p.lng, p.lat)) continue;
+          addPinMarker({
+            id: p.id || p.__id,
+            lng: p.lng,
+            lat: p.lat,
+            address: p.address || "",
+            title: p.title || "Memory",
+            story: p.story || "",
+            category: p.category || "Other",
+            musicUrl: p.musicUrl || "",
+            ownerUid: p.ownerUid || null,
+            ownerName: p.ownerName || "",
+            ownerColor: p.ownerColor || "#ffffff",
+            likeCount: p.likeCount || 0
+          }, true);
+        }
+
+        map.on("contextmenu", (e) => {
+          const { lng, lat } = e.lngLat;
+          if(LOCK_TO_CA && !isInCA(lng, lat)) return;
+          openCtxMenu(e.originalEvent.clientX, e.originalEvent.clientY, e.lngLat, null);
+        });
+
+        map.on("click", () => {
+          if(longPressTriggered){
+            longPressTriggered = false;
+            return;
+          }
+          closeCtxMenu();
+        });
+      });
+
+      map.on("style.load", () => applyBounds());
+
+      $("styleSel").addEventListener("change", (e) => setStyle(e.target.value));
+
+      $("search").addEventListener("input", debounce(() => {
+        const val = $("search").value.trim();
+        $("clearSearch").classList.toggle("show", !!val);
+        maptilerSearch(val);
+      }, 220));
+
+      $("btnSearch").onclick = () => maptilerSearch($("search").value);
+
+      $("clearSearch").onclick = () => {
+        $("search").value = "";
+        $("clearSearch").classList.remove("show");
+        closeDropdown();
+      };
+
+      $("btnLocate").onclick = () => {
+        if(!navigator.geolocation){
+          alert("Geolocation not supported.");
+          return;
+        }
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const lng = pos.coords.longitude;
+          const lat = pos.coords.latitude;
+          map.flyTo({ center:[lng, lat], zoom: 14, speed: 1.15, curve: 1.4 });
+        }, () => alert("Couldn’t get your location (permission denied?)."), { enableHighAccuracy:true, timeout:8000 });
+      };
+
+      $("btnHelp").onclick = () => {
+        alert(
+          "How to use:\n\n" +
+          "• Right-click (desktop) or long-press / double-tap (mobile) to add a pin.\n" +
+          "• Click a pin to open the memory modal.\n" +
+          "• Upload 1+ photos — gallery auto-cycles when there’s more than one.\n" +
+          "• Only the owner can edit/delete a pin."
+        );
+      };
+
+      $("ctxAddPin").onclick = async () => {
+        if(!ctxLngLat) return;
+        const { lng, lat } = ctxLngLat;
+        closeCtxMenu();
+        await createPinAt(lng, lat, "");
+      };
+
+      $("ctxDeletePin").onclick = async () => {
+        if(!ctxPinId) return;
+        const pin = pins.get(ctxPinId);
+        closeCtxMenu();
+        if(pin) await deletePinNow(pin);
+      };
+
+      $("ctxClose").onclick = closeCtxMenu;
+
+      $("pmClose").onclick = closeModal;
+      $("pinModal").addEventListener("click", (e) => {
+        if(e.target === $("pinModal")) closeModal();
+      });
+
+      $("prevBtn").onclick = () => {
+        if(activePhotos.length < 2) return;
+        activeIdx = (activeIdx - 1 + activePhotos.length) % activePhotos.length;
+        renderGallery();
+        startCycle();
+      };
+      $("nextBtn").onclick = () => {
+        if(activePhotos.length < 2) return;
+        activeIdx = (activeIdx + 1) % activePhotos.length;
+        renderGallery();
+        startCycle();
+      };
+
+      $("btnUpload").onclick = async () => {
+        if(!activePin) return;
+        const ok = await requireAuth();
+        if(!ok) return;
+        $("fileInput").click();
+      };
+
+      $("fileInput").addEventListener("change", async (e) => {
+        const files = Array.from(e.target.files || []);
+        if(!files.length || !activePin) return;
+
+        try{
+          $("btnUpload").disabled = true;
+          const caption = $("uploadCaption").value || "";
+          await uploadPhotos(activePin.id, files, caption);
+
+          $("fileInput").value = "";
+          $("uploadCaption").value = "";
+
+          activePhotos = await fetchPhotos(activePin.id);
+          activeIdx = 0;
+          renderGallery();
+          startCycle();
+        } catch(err){
+          console.error(err);
+          alert("Upload failed. Check Storage rules + sign-in.");
+        } finally {
+          updateAuthUI();
+        }
+      });
+
+      $("btnLike").onclick = async () => {
+        if(!activePin) return;
+        try{
+          await toggleLike(activePin.id);
+          await refreshEverything();
+        } catch(e){
+          console.error(e);
+          alert("Like failed. Sign in first.");
+        }
+      };
+
+      $("btnPostComment").onclick = async () => {
+        if(!activePin) return;
+        try{
+          await addComment(activePin.id, $("commentInput").value);
+          $("commentInput").value = "";
+          const comments = await fetchComments(activePin.id);
+          renderComments(comments);
+          $("rightScroll").scrollTo({ top: $("rightScroll").scrollHeight, behavior:"smooth" });
+        } catch(e){
+          console.error(e);
+          alert("Comment failed. Sign in first.");
+        }
+      };
+
+      $("btnEdit").onclick = () => setEditing(true);
+
+      $("btnCancelEdit").onclick = async () => {
+        setEditing(false);
+        await refreshEverything();
+      };
+
+      $("btnSave").onclick = async () => {
+        if(!activePin) return;
+        const u = currentUser();
+        if(!u || u.uid !== activePin.ownerUid) return;
+
+        const upd = {
+          category: $("pmCategory").value,
+          title: $("pmTitleInput").value.trim() || "Memory",
+          story: $("pmStory").value.trim(),
+          musicUrl: $("pmMusicUrl").value.trim()
+        };
+
+        try{
+          if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+          const { db, doc, updateDoc, serverTimestamp } = window.__fb;
+          await updateDoc(doc(db, "pins", activePin.id), { ...upd, updatedAt: serverTimestamp() });
+
+          Object.assign(activePin, upd);
+          $("pmTitle").textContent = activePin.title || "Memory";
+          renderMusic(activePin.musicUrl || "");
+
+          setEditing(false);
+        } catch(e){
+          console.error(e);
+          alert("Save failed. Check Firestore rules.");
+        }
+      };
+
+      $("userPill").onclick = async () => {
+        await openAuthModal();
+      };
+
+      $("authClose").onclick = () => closeAuthModal(false);
+      $("tabSignIn").onclick = () => setAuthMode("signin");
+      $("tabCreate").onclick = () => setAuthMode("create");
+      $("authSignOut").onclick = async () => {
+        try{
+          if(!await ensureFirebaseReady()) return;
+          await window.__fb.signOut(window.__fb.auth);
+          closeAuthModal(true);
+        } catch(e){
+          console.error(e);
+        }
+      };
+
+      $("btnGoogle").onclick = async () => {
+        try{
+          if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+          const { auth, provider, signInWithPopup } = window.__fb;
+          await signInWithPopup(auth, provider);
+          closeAuthModal(true);
+        } catch(e){
+          console.error(e);
+          showAuthError(e?.message || "Google sign-in failed");
+        }
+      };
+
+      $("btnEmailAction").onclick = async () => {
+        const email = $("authEmail").value.trim();
+        const pass = $("authPass").value;
+        if(!email || !pass){ showAuthError("Enter email + password"); return; }
+
+        try{
+          if(!await ensureFirebaseReady()) throw new Error("Firebase not ready");
+          const { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword } = window.__fb;
+
+          if(authMode === "create"){
+            await createUserWithEmailAndPassword(auth, email, pass);
+          } else {
+            await signInWithEmailAndPassword(auth, email, pass);
+          }
+          closeAuthModal(true);
+        } catch(e){
+          console.error(e);
+          showAuthError(e?.message || "Email sign-in failed");
+        }
+      };
+
+      (async () => {
+        const ok = await ensureFirebaseReady();
+        if(!ok) return;
+        const { auth, onAuthStateChanged } = window.__fb;
+
+        onAuthStateChanged(auth, () => {
+          updateAuthUI();
+          if(activePin) refreshEverything().catch(()=>{});
+        });
+      })();
+    }
+
+    init().catch(console.error);
+  </script>
+</body>
+</html>
